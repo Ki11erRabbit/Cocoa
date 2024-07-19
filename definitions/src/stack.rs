@@ -38,6 +38,14 @@ impl Stack {
     pub fn get_local(&mut self, index: u8) {
         self.stack.last_mut().expect("Stack Underflow").load_local(index);
     }
+
+    pub fn get_class_index(&self) -> Reference {
+        self.stack.last().expect("Stack Underflow").get_class_reference()
+    }
+
+    pub fn get_current_pc(&self) -> usize {
+        self.stack.last().expect("Stack Underflow").get_pc()
+    }
 }
 
 
