@@ -1,7 +1,6 @@
 
 
 pub type PoolIndex = usize;
-pub type Object = *const ();
 pub type NativeMethodIndex = usize;
 
 bitflags::bitflags! {
@@ -131,6 +130,7 @@ struct ClassHeaderPart4 {
     methods_count: usize,
 }
 
+#[derive(Debug, Eq, PartialEq)]
 pub struct ClassHeader(*const ());
 
 
@@ -422,7 +422,31 @@ impl ClassHeader {
         }
     }
 
-    
+}
+
+impl Clone for ClassHeader {
+    fn clone(&self) -> ClassHeader {
+        ClassHeader(self.0)
+    }
+}
+
+impl Drop for ClassHeader {
+    fn drop(&mut self) {
+        use std::alloc::{Layout, dealloc};
+        let layout = Layout::new::<ClassHeaderPart1>();
+        let (layout, _) = layout.extend(Layout::array::<PoolEntry>(self.constant_pool_len()).unwrap()).unwrap();
+        let (layout, _) = layout.extend(Layout::new::<ClassHeaderPart2>()).unwrap();
+        let (layout, _) = layout.extend(Layout::array::<PoolIndex>(self.interfaces_count()).unwrap()).unwrap();
+        let (layout, _) = layout.extend(Layout::new::<ClassHeaderPart3>()).unwrap();
+        let (layout, _) = layout.extend(Layout::array::<FieldInfo>(self.fields_count()).unwrap()).unwrap();
+        let (layout, _) = layout.extend(Layout::new::<ClassHeaderPart4>()).unwrap();
+        let (layout, _) = layout.extend(Layout::array::<MethodInfo>(self.methods_count()).unwrap()).unwrap();
+
+        let ptr = self.0 as *mut u8;
+        unsafe {
+            dealloc(ptr, layout);
+        }
+    }
 }
 
 #[cfg(test)]

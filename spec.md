@@ -114,11 +114,29 @@ Const
 VaArgs
 ```
 
-
 ### Object Table
-There needs to be context struct that holds a reference to all local objects to a thread.
-This is one layer of indirection because all references instead point to a global object table that holds all objects.
-These objects by default are not protected by mutexes in order to preserve speed in low threaded applications.
-Attempting to access an object that isn't protected in another thread than the creating thread should cause the equivalent of a page fault which should cause the object to be protected to become referencable in the other thread.
+Objects are stored in a table accessible from all threads. It is up to the programmer to ensure thread safety.
+Class Headers are also stored here.
+
+#### Structures
+
+##### Object Header
+```rust
+struct ObjectHeader {
+    mark: GcMark,
+    size: usize,
+    class_index: usize,
+    ptr: Object,
+}
+```
+
+##### Object Table
+```rust
+struct ObjectTable {
+    offset: usize,
+    table: RwLock<Vec<Option<ObjectHeader>>>
+}
+```
+
 
 
