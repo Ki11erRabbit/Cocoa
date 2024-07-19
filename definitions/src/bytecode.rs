@@ -1,6 +1,6 @@
 use crate::class::PoolIndex;
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Type {
     I8,
     I16,
@@ -18,7 +18,7 @@ pub enum Type {
 
 pub type Offset = isize;
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Bytecode {
     // Stack manipulation
     Pop,

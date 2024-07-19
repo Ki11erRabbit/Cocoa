@@ -23,12 +23,28 @@ impl Stack {
         }
     }
 
-    pub fn push_frame(&mut self, class_index: Reference) {
-        self.stack.push(StackFrame::new(class_index));
+    pub fn is_empty(&self) -> bool {
+        self.stack.is_empty()
+    }
+
+    pub fn push_frame(&mut self, class_index: Reference, method_index: usize) {
+        self.stack.push(StackFrame::new(class_index, method_index));
     }
 
     pub fn pop_frame(&mut self) {
         self.stack.pop();
+    }
+
+    pub fn generic_pop(&mut self) {
+        self.stack.last_mut().expect("Stack Underflow").generic_pop();
+    }
+
+    pub fn dup(&mut self) {
+        self.stack.last_mut().expect("Stack Underflow").dup();
+    }
+
+    pub fn swap(&mut self) {
+        self.stack.last_mut().expect("Stack Underflow").swap();
     }
 
     pub fn set_local(&mut self, index: u8) {
@@ -45,6 +61,14 @@ impl Stack {
 
     pub fn get_current_pc(&self) -> usize {
         self.stack.last().expect("Stack Underflow").get_pc()
+    }
+
+    pub fn set_current_pc(&mut self, pc: usize) {
+        self.stack.last_mut().expect("Stack Underflow").set_pc(pc);
+    }
+
+    pub fn get_current_method_index(&self) -> usize {
+        self.stack.last().expect("Stack Underflow").get_method_index()
     }
 }
 

@@ -52,7 +52,7 @@ impl ObjectBody {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Copy, PartialEq, Eq)]
 pub struct Object(*mut ObjectBody);
 
 impl Object {
@@ -87,15 +87,13 @@ impl Object {
         body.set_field(index, value);
     }
 
-}
-
-impl Drop for Object {
-    fn drop(&mut self) {
+    pub fn deallocate(&mut self) {
+        println!("Dropping Object");
         let field_count = unsafe {self.0.as_ref().unwrap().field_count};
         let layout = std::alloc::Layout::new::<Self>();
         let (layout, _) = layout.extend(std::alloc::Layout::array::<Reference>(field_count).unwrap()).unwrap();
         unsafe {
-            std::ptr::drop_in_place(self);
+            //std::ptr::drop_in_place(self);
             std::alloc::dealloc(self.0 as *mut u8, layout);
         }
     }
@@ -177,7 +175,7 @@ impl ArrayBody {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Copy, PartialEq, Eq)]
 pub struct Array(*mut ArrayBody);
 
 impl Array {
@@ -216,16 +214,9 @@ impl Array {
         let body = unsafe {self.0.as_mut().unwrap()};
         body.set_elem(index, value);
     }
-}
 
-impl Clone for Array {
-    fn clone(&self) -> Self {
-        Array(self.0)
-    }
-}
-
-impl Drop for Array {
-    fn drop(&mut self) {
+    pub fn deallocate(&mut self) {
+        println!("Dropping Array");
         let size = unsafe {self.0.as_ref().unwrap().size};
         let elem_size = unsafe {self.0.as_ref().unwrap().elem_size};
         let layout = std::alloc::Layout::new::<Self>();
@@ -237,9 +228,15 @@ impl Drop for Array {
             _ => panic!("Invalid element size"),
         };
         unsafe {
-            std::ptr::drop_in_place(self);
+            //std::ptr::drop_in_place(self);
             std::alloc::dealloc(self.0 as *mut u8, layout);
         }
+    }
+}
+
+impl Clone for Array {
+    fn clone(&self) -> Self {
+        Array(self.0)
     }
 }
 
@@ -316,6 +313,14 @@ impl ObjectHeader {
     pub fn set_mark(&mut self, mark: GcMark) {
         self.mark = mark;
     }
+
+    pub fn deallocate(&mut self) {
+        match self.ptr {
+            HeaderPtr::Array(mut array) => array.deallocate(),
+            HeaderPtr::Class(mut class) => class.deallocate(),
+            HeaderPtr::Object(mut obj) => obj.deallocate(),
+        }
+    }
 }
 
 
@@ -358,6 +363,9 @@ impl ObjectTable {
 
     pub fn delete_object(&self, reference: Reference) {
         let mut table = self.objects.write().unwrap();
+        table[reference].as_mut().map(|obj| {
+            obj.deallocate();
+        });
         table[reference] = None;
     }
 
@@ -369,6 +377,9 @@ impl ObjectTable {
         self.objects.write().unwrap()
     }
 }
+
+unsafe impl Sync for ObjectTable {}
+unsafe impl Send for ObjectTable {}
 
 #[cfg(test)]
 mod tests {
@@ -439,6 +450,5 @@ mod tests {
     #[test]
     fn test_object_drop() {
         let object = Object::new(0, 0, 4);
-        drop(object);
     }
 }

@@ -20,18 +20,20 @@ pub struct StackFrame {
     operand_stack: Vec<u8>,
     operand_stack_types: Vec<Type>,
     class_reference: Reference,
+    method_index: usize,
     pc: usize,
 }
 
 
 impl StackFrame {
-    pub fn new(class_reference: Reference) -> Self {
+    pub fn new(class_reference: Reference, method_index: usize) -> Self {
         Self {
             local_variables: vec![0; u8::MAX as usize],
             local_variable_types: vec![Type::U8; u8::MAX as usize],
             operand_stack: Vec::new(),
             operand_stack_types: Vec::new(),
             class_reference,
+            method_index,
             pc: 0,
         }
     }
@@ -46,6 +48,42 @@ impl StackFrame {
 
     pub fn get_class_reference(&self) -> Reference {
         self.class_reference
+    }
+
+    pub fn get_method_index(&self) -> usize {
+        self.method_index
+    }
+
+    pub fn generic_pop(&mut self) {
+        let ty = self.operand_stack_types.pop().expect("stack underflow");
+        match ty {
+            Type::Char(size) => {
+                for _ in 0..size {
+                    self.operand_stack.pop();
+                }
+            }
+            Type::U8 | Type::I8 => {self.operand_stack.pop();},
+            Type::U16 | Type::I16 => {
+                self.operand_stack.pop();
+                self.operand_stack.pop();
+            }
+            Type::U32 | Type::I32 | Type::F32 => {
+                self.operand_stack.pop();
+                self.operand_stack.pop();
+                self.operand_stack.pop();
+                self.operand_stack.pop();
+            }
+            Type::U64 | Type::I64 | Type::F64 | Type::Reference => {
+                self.operand_stack.pop();
+                self.operand_stack.pop();
+                self.operand_stack.pop();
+                self.operand_stack.pop();
+                self.operand_stack.pop();
+                self.operand_stack.pop();
+                self.operand_stack.pop();
+                self.operand_stack.pop();
+            }
+        }
     }
 
     pub fn get_references(&self) -> Vec<Reference> {
@@ -723,154 +761,155 @@ mod test {
 
     #[test]
     fn test_i8() {
-        let mut stack_frame = StackFrame::new(0);
+        let mut stack_frame = StackFrame::new(0, 0);
         stack_frame.push(1i8);
         assert_eq!(StackFrameUtils::<i8>::pop(&mut stack_frame), 1i8);
     }
 
     #[test]
     fn test_i16() {
-        let mut stack_frame = StackFrame::new(0);
+        let mut stack_frame = StackFrame::new(0, 0);
         stack_frame.push(1i16);
         assert_eq!(StackFrameUtils::<i16>::pop(&mut stack_frame), 1i16);
     }
 
     #[test]
     fn test_i32() {
-        let mut stack_frame = StackFrame::new(0);
+        let mut stack_frame = StackFrame::new(0, 0);
         stack_frame.push(1i32);
         assert_eq!(StackFrameUtils::<i32>::pop(&mut stack_frame), 1i32);
     }
 
     #[test]
     fn test_i64() {
-        let mut stack_frame = StackFrame::new(0);
+        let mut stack_frame = StackFrame::new(0, 0);
         stack_frame.push(1i64);
         assert_eq!(StackFrameUtils::<i64>::pop(&mut stack_frame), 1i64);
     }
 
     #[test]
     fn test_u8() {
-        let mut stack_frame = StackFrame::new(0);
+        let mut stack_frame = StackFrame::new(0, 0);
         stack_frame.push(1u8);
         assert_eq!(StackFrameUtils::<u8>::pop(&mut stack_frame), 1u8);
     }
 
     #[test]
     fn test_u16() {
-        let mut stack_frame = StackFrame::new(0);
+        let mut stack_frame = StackFrame::new(0, 0);
         stack_frame.push(1u16);
         assert_eq!(StackFrameUtils::<u16>::pop(&mut stack_frame), 1u16);
     }
 
     #[test]
     fn test_u32() {
-        let mut stack_frame = StackFrame::new(0);
+        let mut stack_frame = StackFrame::new(0, 0);
         stack_frame.push(1u32);
         assert_eq!(StackFrameUtils::<u32>::pop(&mut stack_frame), 1u32);
     }
 
     #[test]
     fn test_u64() {
-        let mut stack_frame = StackFrame::new(0);
+        let mut stack_frame = StackFrame::new(0, 0);
         stack_frame.push(1u64);
         assert_eq!(StackFrameUtils::<u64>::pop(&mut stack_frame), 1u64);
     }
 
     #[test]
     fn test_f32() {
-        let mut stack_frame = StackFrame::new(0);
+        let mut stack_frame = StackFrame::new(0, 0);
         stack_frame.push(1.0f32);
         assert_eq!(StackFrameUtils::<f32>::pop(&mut stack_frame), 1.0f32);
     }
 
     #[test]
     fn test_f64() {
-        let mut stack_frame = StackFrame::new(0);
+        let mut stack_frame = StackFrame::new(0, 0);
         stack_frame.push(1.0f64);
         assert_eq!(StackFrameUtils::<f64>::pop(&mut stack_frame), 1.0f64);
     }
 
     #[test]
     fn test_reference() {
-        let mut stack_frame = StackFrame::new(0);
-        stack_frame.push(1);
+        let mut stack_frame = StackFrame::new(0, 0);
+        let refe: usize = 1;
+        stack_frame.push(refe);
         assert_eq!(StackFrameUtils::<Reference>::pop(&mut stack_frame), 1);
     }
 
     #[test]
     fn test_i8_argument() {
-        let mut stack_frame = StackFrame::new(0);
+        let mut stack_frame = StackFrame::new(0, 0);
         StackFrameUtils::<i8>::store_argument(&mut stack_frame, 0, 1);
         assert_eq!(StackFrameUtils::<i8>::load_argument(&mut stack_frame, 0), 1);
     }
 
     #[test]
     fn test_i16_argument() {
-        let mut stack_frame = StackFrame::new(0);
+        let mut stack_frame = StackFrame::new(0, 0);
         StackFrameUtils::<i16>::store_argument(&mut stack_frame, 0, 1);
         assert_eq!(StackFrameUtils::<i16>::load_argument(&mut stack_frame, 0), 1);
     }
 
     #[test]
     fn test_i32_argument() {
-        let mut stack_frame = StackFrame::new(0);
+        let mut stack_frame = StackFrame::new(0, 0);
         StackFrameUtils::<i32>::store_argument(&mut stack_frame, 0, 1);
         assert_eq!(StackFrameUtils::<i32>::load_argument(&mut stack_frame, 0), 1);
     }
 
     #[test]
     fn test_i64_argument() {
-        let mut stack_frame = StackFrame::new(0);
+        let mut stack_frame = StackFrame::new(0, 0);
         StackFrameUtils::<i64>::store_argument(&mut stack_frame, 0, 1);
         assert_eq!(StackFrameUtils::<i64>::load_argument(&mut stack_frame, 0), 1);
     }
 
     #[test]
     fn test_u8_argument() {
-        let mut stack_frame = StackFrame::new(0);
+        let mut stack_frame = StackFrame::new(0, 0);
         StackFrameUtils::<u8>::store_argument(&mut stack_frame, 0, 1);
         assert_eq!(StackFrameUtils::<u8>::load_argument(&mut stack_frame, 0), 1);
     }
 
     #[test]
     fn test_u16_argument() {
-        let mut stack_frame = StackFrame::new(0);
+        let mut stack_frame = StackFrame::new(0, 0);
         StackFrameUtils::<u16>::store_argument(&mut stack_frame, 0, 1);
         assert_eq!(StackFrameUtils::<u16>::load_argument(&mut stack_frame, 0), 1);
     }
 
     #[test]
     fn test_u32_argument() {
-        let mut stack_frame = StackFrame::new(0);
+        let mut stack_frame = StackFrame::new(0, 0);
         StackFrameUtils::<u32>::store_argument(&mut stack_frame, 0, 1);
         assert_eq!(StackFrameUtils::<u32>::load_argument(&mut stack_frame, 0), 1);
     }
 
     #[test]
     fn test_u64_argument() {
-        let mut stack_frame = StackFrame::new(0);
+        let mut stack_frame = StackFrame::new(0, 0);
         StackFrameUtils::<u64>::store_argument(&mut stack_frame, 0, 1);
         assert_eq!(StackFrameUtils::<u64>::load_argument(&mut stack_frame, 0), 1);
     }
 
     #[test]
     fn test_f32_argument() {
-        let mut stack_frame = StackFrame::new(0);
+        let mut stack_frame = StackFrame::new(0, 0);
         StackFrameUtils::<f32>::store_argument(&mut stack_frame, 0, 1.0);
         assert_eq!(StackFrameUtils::<f32>::load_argument(&mut stack_frame, 0), 1.0);
     }
 
     #[test]
     fn test_f64_argument() {
-        let mut stack_frame = StackFrame::new(0);
+        let mut stack_frame = StackFrame::new(0, 0);
         StackFrameUtils::<f64>::store_argument(&mut stack_frame, 0, 1.0);
         assert_eq!(StackFrameUtils::<f64>::load_argument(&mut stack_frame, 0), 1.0);
     }
 
     #[test]
     fn test_reference_argument() {
-        let mut stack_frame = StackFrame::new(0);
+        let mut stack_frame = StackFrame::new(0, 0);
         StackFrameUtils::<Reference>::store_argument(&mut stack_frame, 0, 1);
         assert_eq!(StackFrameUtils::<Reference>::load_argument(&mut stack_frame, 0), 1);
     }

@@ -1,3 +1,5 @@
+use crate::{bytecode::Bytecode, object::Reference};
+
 
 
 pub type PoolIndex = usize;
@@ -36,13 +38,21 @@ pub enum PoolEntry<'a> {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ClassInfo {
-    name: PoolIndex,
+    pub name: PoolIndex,
+    pub class_ref: Option<Reference>
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Method {
     Native(NativeMethodIndex),
-    //Bytecode(Box<[Bytecode]>),
+    Bytecode(Box<[Bytecode]>, usize),
+    Foreign {
+        name: PoolIndex,
+    },
+    ForeignLinked {
+        class_ref: Reference,
+        name: PoolIndex,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -90,10 +100,10 @@ bitflags::bitflags! {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct MethodInfo {
-    flags: MethodFlags,
-    name: PoolIndex,
-    type_info: PoolIndex,
-    location: PoolIndex,
+    pub flags: MethodFlags,
+    pub name: PoolIndex,
+    pub type_info: PoolIndex,
+    pub location: PoolIndex,
 }
 
 bitflags::bitflags! {
@@ -130,7 +140,7 @@ struct ClassHeaderPart4 {
     methods_count: usize,
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Copy, Eq, PartialEq)]
 pub struct ClassHeader(*const ());
 
 
@@ -422,16 +432,7 @@ impl ClassHeader {
         }
     }
 
-}
-
-impl Clone for ClassHeader {
-    fn clone(&self) -> ClassHeader {
-        ClassHeader(self.0)
-    }
-}
-
-impl Drop for ClassHeader {
-    fn drop(&mut self) {
+    pub fn deallocate(&mut self) {
         use std::alloc::{Layout, dealloc};
         let layout = Layout::new::<ClassHeaderPart1>();
         let (layout, _) = layout.extend(Layout::array::<PoolEntry>(self.constant_pool_len()).unwrap()).unwrap();
@@ -447,7 +448,15 @@ impl Drop for ClassHeader {
             dealloc(ptr, layout);
         }
     }
+
 }
+
+impl Clone for ClassHeader {
+    fn clone(&self) -> ClassHeader {
+        ClassHeader(self.0)
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
