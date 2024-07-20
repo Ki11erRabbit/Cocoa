@@ -1,5 +1,6 @@
 use definitions::{bytecode::Bytecode, class::{ClassHeader, ClassInfo, Method, MethodFlags, MethodInfo, PoolEntry}};
-use virtual_machine::{Machine, ObjectTableSingleton};
+use virtual_machine::{Machine, NativeMethodTable, ObjectTableSingleton};
+use virtual_machine::ObjectTable;
 
 mod virtual_machine;
 
@@ -42,9 +43,9 @@ fn main() {
     let object_table = ObjectTableSingleton::get_singleton();
 
     let class_ref = object_table.add_class(class);
+    let method_table = NativeMethodTable::get_table();
 
-    let mut vm = Machine::new();
+    let mut vm = Machine::new(&object_table, &method_table);
 
     vm.run_bootstrap(class_ref, 0).unwrap();
-    
 }

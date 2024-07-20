@@ -1,6 +1,8 @@
 use once_cell::sync::Lazy;
 use definitions::{class::{ClassHeader, ClassInfo, PoolEntry}, object::{Object, ObjectTable, Reference}, RustNativeMethod};
 
+use super::machine;
+
 static OBJECT_TABLE: Lazy<ObjectTable> = Lazy::new(|| {
     ObjectTable::new()
 });
@@ -16,7 +18,10 @@ impl ObjectTableSingleton {
         &OBJECT_TABLE
     }
 
-    pub fn create_object(&self, class_ref: Reference) -> Reference {
+}
+
+impl machine::ObjectTable for ObjectTableSingleton {
+    fn create_object(&self, class_ref: Reference) -> Reference {
         let class = self.get_object_table()
             .get_object(class_ref)
             .expect("Invalid Reference")
@@ -26,7 +31,7 @@ impl ObjectTableSingleton {
         let parent_info = class.get_constant_pool_entry(parent_info_index);
         let parent_reference = match parent_info {
             PoolEntry::ClassInfo(ClassInfo {class_ref: Some(class_ref), ..}) => {
-                self.create_object(class_ref)
+                self.create_object(*class_ref)
             }
             PoolEntry::ClassInfo(ClassInfo {class_ref: None, ..}) => {
                 0
@@ -42,18 +47,18 @@ impl ObjectTableSingleton {
         self.get_object_table().add_object(object)
     }
 
-    pub fn add_class(&self, class: ClassHeader) -> Reference {
+    fn add_class(&self, class: ClassHeader) -> Reference {
         self.get_object_table().add_class(class)
     }
 
-    pub fn get_object(&self, reference: Reference) -> Object {
+    fn get_object(&self, reference: Reference) -> Object {
         self.get_object_table()
             .get_object(reference)
             .expect("Invalid Reference")
             .get_object_ptr()
     }
 
-    pub fn get_class(&self, reference: Reference) -> ClassHeader {
+    fn get_class(&self, reference: Reference) -> ClassHeader {
         self.get_object_table()
             .get_object(reference)
             .expect("Invalid Reference")
@@ -61,4 +66,3 @@ impl ObjectTableSingleton {
     }
 
 }
-

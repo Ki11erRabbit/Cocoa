@@ -314,13 +314,13 @@ impl ClassHeader {
         }
     }
 
-    pub fn get_constant_pool_entry(&self, index: usize) -> PoolEntry {
+    pub fn get_constant_pool_entry(&self, index: usize) -> &PoolEntry {
         let ptr = self.0 as *const ClassHeaderPart1;
         let ptr = unsafe { ptr.add(1) };
         let ptr = ptr as *const PoolEntry;
         let ptr = unsafe { ptr.add(index) };
         unsafe {
-            ptr.read()
+            ptr.as_ref().unwrap()
         }
     }
 
@@ -370,7 +370,7 @@ impl ClassHeader {
         }
     }
 
-    pub fn get_field(&self, index: usize) -> FieldInfo {
+    pub fn get_field(&self, index: usize) -> &FieldInfo {
         let ptr = self.0 as *const ClassHeaderPart1;
         let ptr = unsafe { ptr.add(1) };
         let ptr = ptr as *const PoolEntry;
@@ -384,7 +384,7 @@ impl ClassHeader {
         let ptr = ptr as *const FieldInfo;
         let ptr = unsafe { ptr.add(index) };
         unsafe {
-            ptr.read()
+            ptr.as_ref().unwrap()
         }
     }
 
@@ -410,7 +410,7 @@ impl ClassHeader {
         }
     }
 
-    pub fn get_method(&self, index: usize) -> MethodInfo {
+    pub fn get_method(&self, index: usize) -> &MethodInfo {
         let ptr = self.0 as *const ClassHeaderPart1;
         let ptr = unsafe { ptr.add(1) };
         let ptr = ptr as *const PoolEntry;
@@ -428,12 +428,13 @@ impl ClassHeader {
         let ptr = ptr as *const MethodInfo;
         let ptr = unsafe { ptr.add(index) };
         unsafe {
-            ptr.read()
+            ptr.as_ref().unwrap()
         }
     }
 
     pub fn deallocate(&mut self) {
         use std::alloc::{Layout, dealloc};
+        println!("Deallocating class header");
         let layout = Layout::new::<ClassHeaderPart1>();
         let (layout, _) = layout.extend(Layout::array::<PoolEntry>(self.constant_pool_len()).unwrap()).unwrap();
         let (layout, _) = layout.extend(Layout::new::<ClassHeaderPart2>()).unwrap();
@@ -445,7 +446,40 @@ impl ClassHeader {
 
         let ptr = self.0 as *mut u8;
         unsafe {
-            dealloc(ptr, layout);
+            core::ptr::drop_in_place(ptr as *mut ClassHeaderPart1);
+            let og_ptr = ptr;
+            let ptr = ptr.add(1);
+            let mut ptr = ptr as *mut PoolEntry;
+            for i in 0..self.constant_pool_len() {
+                ptr = ptr.add(i);
+                core::ptr::drop_in_place(ptr);
+            }
+            let ptr = ptr as *mut ClassHeaderPart2;
+            core::ptr::drop_in_place(ptr);
+            let ptr = ptr.add(1);
+            let mut ptr = ptr as *mut PoolIndex;
+            for i in 0..self.interfaces_count() {
+                ptr = ptr.add(i);
+                core::ptr::drop_in_place(ptr);
+            }
+            let ptr = ptr as *mut ClassHeaderPart3;
+            core::ptr::drop_in_place(ptr);
+            let ptr = ptr.add(1);
+            let mut ptr = ptr as *mut FieldInfo;
+            for i in 0..self.fields_count() {
+                ptr = ptr.add(i);
+                core::ptr::drop_in_place(ptr);
+            }
+            let ptr = ptr as *mut ClassHeaderPart4;
+            core::ptr::drop_in_place(ptr);
+            let ptr = ptr.add(1);
+            let mut ptr = ptr as *mut MethodInfo;
+            for i in 0..self.methods_count() {
+                ptr = ptr.add(i);
+                core::ptr::drop_in_place(ptr);
+            }
+            
+            dealloc(og_ptr, layout);
         }
     }
 
@@ -495,7 +529,7 @@ mod tests {
     fn test_class_header_set_constant_pool_entry() {
         let mut header = ClassHeader::new(10, 5, 3, 4);
         header.set_constant_pool_entry(5, PoolEntry::String("Hello"));
-        assert_eq!(header.get_constant_pool_entry(5), PoolEntry::String("Hello"));
+        assert_eq!(*header.get_constant_pool_entry(5), PoolEntry::String("Hello"));
     }
 
     #[test]
@@ -513,7 +547,7 @@ mod tests {
             flags: FieldFlags::Public,
             type_info: 2
         });
-        assert_eq!(header.get_field(5), FieldInfo {
+        assert_eq!(*header.get_field(5), FieldInfo {
             name: 10,
             flags: FieldFlags::Public,
             type_info: 2
@@ -529,7 +563,7 @@ mod tests {
             type_info: 2,
             location: 3
         });
-        assert_eq!(header.get_method(5), MethodInfo {
+        assert_eq!(*header.get_method(5), MethodInfo {
             name: 10,
             flags: MethodFlags::Public,
             type_info: 2,
