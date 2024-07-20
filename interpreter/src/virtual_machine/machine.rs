@@ -1,4 +1,6 @@
-use definitions::{bytecode::Bytecode, class::{ClassHeader, Method, NativeMethodIndex, PoolEntry, PoolIndex, TypeInfo}, object::{Object, Reference}, stack::{Stack, StackUtils}, ArgType, CocoaResult};
+use std::os::unix::raw::off_t;
+
+use definitions::{bytecode::{Bytecode, Offset}, class::{ClassHeader, Method, NativeMethodIndex, PoolEntry, PoolIndex, TypeInfo}, object::{Object, Reference}, stack::{Stack, StackUtils}, ArgType, CocoaResult};
 
 use crate::virtual_machine::NativeMethod;
 
@@ -100,7 +102,126 @@ impl Machine<'_> {
             // Local Variables
             B::StoreLocal(index) => self.stack.set_local(index),
             B::LoadLocal(index) => self.stack.get_local(index),
+            // Arithmetic
+            B::Add => {
+                self.stack.add()?;
+            },
+            B::Subtract => {
+                self.stack.subtract()?;
+            },
+            B::Multiply => {
+                self.stack.multiply()?;
+            },
+            B::Divide => {
+                self.stack.divide()?;
+            },
+            B::Modulo => {
+                self.stack.modulo()?;
+            },
+            B::Negate => {
+                self.stack.negate()?;
+            },
+            // Bitwise
+            B::And => {
+                self.stack.and()?;
+            },
+            B::Or => {
+                self.stack.or()?;
+            },
+            B::Xor => {
+                self.stack.xor()?;
+            },
+            B::Not => {
+                self.stack.not()?;
+            },
+            B::ShiftLeft => {
+                self.stack.shift_left()?;
+            },
+            B::ShiftRight => {
+                self.stack.shift_right()?;
+            },
+            // Comparison
+            B::Equal => {
+                self.stack.equal()?;
+            },
+            B::Greater => {
+                self.stack.greater()?;
+            },
+            B::Less => {
+                self.stack.less()?;
+            },
             // Control Flow
+            B::Goto(offset) => {
+                let pc = self.stack.get_current_pc();
+                self.stack.set_current_pc(((pc as isize) + offset) as usize);
+                return Ok(());
+            },
+            B::If(offset) => {
+                let value = StackUtils::<i8>::pop(&mut self.stack);
+                if value == 0 {
+                    let pc = self.stack.get_current_pc();
+                    self.stack.set_current_pc(((pc as isize) + offset) as usize);
+                    return Ok(());
+                }
+            },
+            B::IfNot(offset) => {
+                let value = StackUtils::<i8>::pop(&mut self.stack);
+                if value != 0 {
+                    let pc = self.stack.get_current_pc();
+                    self.stack.set_current_pc(((pc as isize) + offset) as usize);
+                    return Ok(());
+                }
+            },
+            B::IfGreater(offset) => {
+                let value = StackUtils::<i8>::pop(&mut self.stack);
+                if value > 0 {
+                    let pc = self.stack.get_current_pc();
+                    self.stack.set_current_pc(((pc as isize) + offset) as usize);
+                    return Ok(());
+                }
+            },
+            B::IfLess(offset) => {
+                let value = StackUtils::<i8>::pop(&mut self.stack);
+                if value < 0 {
+                    let pc = self.stack.get_current_pc();
+                    self.stack.set_current_pc(((pc as isize) + offset) as usize);
+                    return Ok(());
+                }
+            },
+            B::IfGreaterEqual(offset) => {
+                let value = StackUtils::<i8>::pop(&mut self.stack);
+                if value >= 0 {
+                    let pc = self.stack.get_current_pc();
+                    self.stack.set_current_pc(((pc as isize) + offset) as usize);
+                    return Ok(());
+                }
+            },
+            B::IfLessEqual(offset) => {
+                let value = StackUtils::<i8>::pop(&mut self.stack);
+                if value <= 0 {
+                    let pc = self.stack.get_current_pc();
+                    self.stack.set_current_pc(((pc as isize) + offset) as usize);
+                    return Ok(());
+                }
+            },
+            B::IfNull(offset) => {
+                let value = StackUtils::<Reference>::pop(&mut self.stack);
+                StackUtils::<Reference>::push(&mut self.stack, value);
+                if value == 0 {
+                    let pc = self.stack.get_current_pc();
+                    self.stack.set_current_pc(((pc as isize) + offset) as usize);
+                    return Ok(());
+                }
+            },
+            B::IfNotNull(offset) => {
+                let value = StackUtils::<Reference>::pop(&mut self.stack);
+                StackUtils::<Reference>::push(&mut self.stack, value);
+                if value != 0 {
+                    let pc = self.stack.get_current_pc();
+                    self.stack.set_current_pc(((pc as isize) + offset) as usize);
+                    return Ok(());
+                }
+            },
             B::InvokeStatic(pool_index) => {
                 let class_ref = self.stack.get_class_index();
 

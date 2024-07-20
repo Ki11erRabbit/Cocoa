@@ -1,4 +1,4 @@
-use crate::object::Reference;
+use crate::{bytecode::Type, object::Reference, CocoaResult};
 
 use self::stackframe::{StackFrame, StackFrameUtils};
 
@@ -78,6 +78,74 @@ impl Stack {
             return;
         }
         self.stack.last_mut().expect("Stack Underflow").push_return_value(bytes, ty);
+    }
+
+    pub fn add(&mut self) -> CocoaResult<()> {
+        self.stack.last_mut().expect("Stack Underflow").add()
+    }
+
+    pub fn subtract(&mut self) -> CocoaResult<()> {
+        self.stack.last_mut().expect("Stack Underflow").subtract()
+    }
+
+    pub fn multiply(&mut self) -> CocoaResult<()> {
+        self.stack.last_mut().expect("Stack Underflow").multiply()
+    }
+
+    pub fn divide(&mut self) -> CocoaResult<()> {
+        self.stack.last_mut().expect("Stack Underflow").divide()
+    }
+
+    pub fn modulo(&mut self) -> CocoaResult<()> {
+        self.stack.last_mut().expect("Stack Underflow").modulo()
+    }
+
+    pub fn negate(&mut self) -> CocoaResult<()> {
+        self.stack.last_mut().expect("Stack Underflow").negate()
+    }
+
+    pub fn and(&mut self) -> CocoaResult<()> {
+        self.stack.last_mut().expect("Stack Underflow").and()
+    }
+
+    pub fn or(&mut self) -> CocoaResult<()> {
+        self.stack.last_mut().expect("Stack Underflow").or()
+    }
+
+    pub fn xor(&mut self) -> CocoaResult<()> {
+        self.stack.last_mut().expect("Stack Underflow").xor()
+    }
+
+    pub fn not(&mut self) -> CocoaResult<()> {
+        self.stack.last_mut().expect("Stack Underflow").not()
+    }
+
+    pub fn shift_left(&mut self) -> CocoaResult<()> {
+        self.stack.last_mut().expect("Stack Underflow").shift_left()
+    }
+
+    pub fn shift_right(&mut self) -> CocoaResult<()> {
+        self.stack.last_mut().expect("Stack Underflow").shift_right()
+    }
+
+    pub fn equal(&mut self) -> CocoaResult<()> {
+        self.stack.last_mut().expect("Stack Underflow").equal()
+    }
+
+    pub fn greater(&mut self) -> CocoaResult<()> {
+        self.stack.last_mut().expect("Stack Underflow").greater()
+    }
+
+    pub fn less(&mut self) -> CocoaResult<()> {
+        self.stack.last_mut().expect("Stack Underflow").less()
+    }
+
+    pub fn convert(&mut self, ty: Type) -> CocoaResult<()> {
+        self.stack.last_mut().expect("Stack Underflow").convert(ty)
+    }
+
+    pub fn binary_convert(&mut self, ty: Type) -> CocoaResult<()> {
+        self.stack.last_mut().expect("Stack Underflow").binary_convert(ty)
     }
 }
 

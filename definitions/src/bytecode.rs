@@ -45,13 +45,11 @@ pub enum Bytecode {
     ShiftRight,
     // Comparison
     Equal,
-    NotEqual,
     Greater,
-    GreaterEqual,
     Less,
-    LessEqual,
     // Conversion
-    Convert(Type, Type),
+    Convert(Type),
+    BinaryConvert(Type),
     // Control Flow
     Goto(Offset),
     If(Offset),
@@ -73,6 +71,7 @@ pub enum Bytecode {
     GetField(PoolIndex),
     StoreStatic(PoolIndex),
     LoadStatic(PoolIndex),
+    InstanceOf(PoolIndex),
     // Array Related
     NewArray(Type, usize),
     ArrayGet(Type, usize),
@@ -80,5 +79,4 @@ pub enum Bytecode {
     // Misc
     Breakpoint,
     Nop,
-    InstanceOf(PoolIndex),
 }
