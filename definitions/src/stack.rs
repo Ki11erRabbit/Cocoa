@@ -8,7 +8,7 @@ mod stackframe;
 pub trait StackUtils<T> {
     fn push(&mut self, value: T);
     fn pop(&mut self) -> T;
-    fn set_argument(&mut self, index: u8, value: T);
+    fn set_argument(&mut self, index: u8);
     fn get_argument(&mut self, index: u8) -> T;
 }
 
@@ -70,6 +70,15 @@ impl Stack {
     pub fn get_current_method_index(&self) -> usize {
         self.stack.last().expect("Stack Underflow").get_method_index()
     }
+
+    pub fn return_value(&mut self) {
+        let (bytes, ty) = self.stack.last_mut().expect("Stack Underflow").return_value();
+        self.stack.pop();
+        if self.stack.is_empty() {
+            return;
+        }
+        self.stack.last_mut().expect("Stack Underflow").push_return_value(bytes, ty);
+    }
 }
 
 
@@ -82,11 +91,33 @@ impl StackUtils<i8> for Stack {
         self.stack.last_mut().unwrap().pop()
     }
 
-    fn set_argument(&mut self, index: u8, value: i8) {
+    fn set_argument(&mut self, index: u8) {
+        let len = self.stack.len();
+        let value: i8 = self.stack[len - 2].pop();
         self.stack.last_mut().expect("Stack Underflow").store_argument(index, value);
     }
 
     fn get_argument(&mut self, index: u8) -> i8 {
+        self.stack.last_mut().expect("Stack Underflow").load_argument(index)
+    }
+}
+
+impl StackUtils<i16> for Stack {
+    fn push(&mut self, value: i16) {
+        self.stack.last_mut().expect("Stack Underflow").push(value);
+    }
+
+    fn pop(&mut self) -> i16 {
+        self.stack.last_mut().unwrap().pop()
+    }
+
+    fn set_argument(&mut self, index: u8) {
+        let len = self.stack.len();
+        let value: i16 = self.stack[len - 2].pop();
+        self.stack.last_mut().expect("Stack Underflow").store_argument(index, value);
+    }
+
+    fn get_argument(&mut self, index: u8) -> i16 {
         self.stack.last_mut().expect("Stack Underflow").load_argument(index)
     }
 }
@@ -100,7 +131,9 @@ impl StackUtils<i32> for Stack {
         self.stack.last_mut().unwrap().pop()
     }
 
-    fn set_argument(&mut self, index: u8, value: i32) {
+    fn set_argument(&mut self, index: u8) {
+        let len = self.stack.len();
+        let value: i32 = self.stack[len - 2].pop();
         self.stack.last_mut().expect("Stack Underflow").store_argument(index, value);
     }
 
@@ -118,7 +151,9 @@ impl StackUtils<i64> for Stack {
         self.stack.last_mut().unwrap().pop()
     }
 
-    fn set_argument(&mut self, index: u8, value: i64) {
+    fn set_argument(&mut self, index: u8) {
+        let len = self.stack.len();
+        let value: i64 = self.stack[len - 2].pop();
         self.stack.last_mut().expect("Stack Underflow").store_argument(index, value);
     }
 
@@ -136,11 +171,33 @@ impl StackUtils<u8> for Stack {
         self.stack.last_mut().unwrap().pop()
     }
 
-    fn set_argument(&mut self, index: u8, value: u8) {
+    fn set_argument(&mut self, index: u8) {
+        let len = self.stack.len();
+        let value: u8 = self.stack[len - 2].pop();
         self.stack.last_mut().expect("Stack Underflow").store_argument(index, value);
     }
 
     fn get_argument(&mut self, index: u8) -> u8 {
+        self.stack.last_mut().expect("Stack Underflow").load_argument(index)
+    }
+}
+
+impl StackUtils<u16> for Stack {
+    fn push(&mut self, value: u16) {
+        self.stack.last_mut().expect("Stack Underflow").push(value);
+    }
+
+    fn pop(&mut self) -> u16 {
+        self.stack.last_mut().unwrap().pop()
+    }
+
+    fn set_argument(&mut self, index: u8) {
+        let len = self.stack.len();
+        let value: u16 = self.stack[len - 2].pop();
+        self.stack.last_mut().expect("Stack Underflow").store_argument(index, value);
+    }
+
+    fn get_argument(&mut self, index: u8) -> u16 {
         self.stack.last_mut().expect("Stack Underflow").load_argument(index)
     }
 }
@@ -154,7 +211,9 @@ impl StackUtils<u32> for Stack {
         self.stack.last_mut().unwrap().pop()
     }
 
-    fn set_argument(&mut self, index: u8, value: u32) {
+    fn set_argument(&mut self, index: u8) {
+        let len = self.stack.len();
+        let value: u32 = self.stack[len - 2].pop();
         self.stack.last_mut().expect("Stack Underflow").store_argument(index, value);
     }
 
@@ -172,7 +231,9 @@ impl StackUtils<u64> for Stack {
         self.stack.last_mut().unwrap().pop()
     }
 
-    fn set_argument(&mut self, index: u8, value: u64) {
+    fn set_argument(&mut self, index: u8) {
+        let len = self.stack.len();
+        let value: u64 = self.stack[len - 2].pop();
         self.stack.last_mut().expect("Stack Underflow").store_argument(index, value);
     }
 
@@ -190,7 +251,9 @@ impl StackUtils<f32> for Stack {
         self.stack.last_mut().unwrap().pop()
     }
 
-    fn set_argument(&mut self, index: u8, value: f32) {
+    fn set_argument(&mut self, index: u8) {
+        let len = self.stack.len();
+        let value: f32 = self.stack[len - 2].pop();
         self.stack.last_mut().expect("Stack Underflow").store_argument(index, value);
     }
 
@@ -208,7 +271,9 @@ impl StackUtils<f64> for Stack {
         self.stack.last_mut().unwrap().pop()
     }
 
-    fn set_argument(&mut self, index: u8, value: f64) {
+    fn set_argument(&mut self, index: u8) {
+        let len = self.stack.len();
+        let value: f64 = self.stack[len - 2].pop();
         self.stack.last_mut().expect("Stack Underflow").store_argument(index, value);
     }
 
@@ -226,7 +291,9 @@ impl StackUtils<Reference> for Stack {
         self.stack.last_mut().unwrap().pop()
     }
 
-    fn set_argument(&mut self, index: u8, value: Reference) {
+    fn set_argument(&mut self, index: u8) {
+        let len = self.stack.len();
+        let value: Reference = self.stack[len - 2].pop();
         self.stack.last_mut().expect("Stack Underflow").store_argument(index, value);
     }
 

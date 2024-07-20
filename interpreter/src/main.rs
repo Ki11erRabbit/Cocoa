@@ -23,7 +23,7 @@ fn main() {
     class.set_constant_pool_entry(2, PoolEntry::String("Main"));
     class.set_constant_pool_entry(3, PoolEntry::String("Object"));
     class.set_constant_pool_entry(4, PoolEntry::Method(Method::Bytecode(vec![Bytecode::InvokeStatic(5), Bytecode::Return].into(),0)));
-    class.set_constant_pool_entry(5, PoolEntry::Method(Method::Native(0)));
+    class.set_constant_pool_entry(5, PoolEntry::Method(Method::Native(0, 1)));
 
     class.set_method(0, MethodInfo {
         flags: MethodFlags::Static,

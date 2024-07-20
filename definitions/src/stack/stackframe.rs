@@ -6,9 +6,6 @@ pub trait StackFrameUtils<T> {
     fn pop(&mut self) -> T;
     fn store_argument(&mut self, index: u8, value: T);
     fn load_argument(&mut self, index: u8) -> T;
-    fn return_value(&mut self) -> T {
-        self.pop()
-    }
 }
 
 
@@ -84,6 +81,72 @@ impl StackFrame {
                 self.operand_stack.pop();
             }
         }
+    }
+
+    pub fn return_value(&mut self) -> (Vec<u8>, Type) {
+        let mut return_value = Vec::new();
+        let ty = self.operand_stack_types.pop().expect("stack underflow");
+        match ty {
+            Type::Char(size) => {
+                for _ in 0..size {
+                    return_value.push(self.operand_stack.pop().expect("stack underflow"));
+                }
+            }
+            Type::U8 | Type::I8 => {return_value.push(self.operand_stack.pop().expect("stack underflow"));}
+            Type::U16 | Type::I16 => {
+                return_value.push(self.operand_stack.pop().expect("stack underflow"));
+                return_value.push(self.operand_stack.pop().expect("stack underflow"));
+            }
+            Type::U32 | Type::I32 | Type::F32 => {
+                return_value.push(self.operand_stack.pop().expect("stack underflow"));
+                return_value.push(self.operand_stack.pop().expect("stack underflow"));
+                return_value.push(self.operand_stack.pop().expect("stack underflow"));
+                return_value.push(self.operand_stack.pop().expect("stack underflow"));
+            },
+            Type::U64 | Type::I64 | Type::F64 | Type::Reference => {
+                return_value.push(self.operand_stack.pop().expect("stack underflow"));
+                return_value.push(self.operand_stack.pop().expect("stack underflow"));
+                return_value.push(self.operand_stack.pop().expect("stack underflow"));
+                return_value.push(self.operand_stack.pop().expect("stack underflow"));
+                return_value.push(self.operand_stack.pop().expect("stack underflow"));
+                return_value.push(self.operand_stack.pop().expect("stack underflow"));
+                return_value.push(self.operand_stack.pop().expect("stack underflow"));
+                return_value.push(self.operand_stack.pop().expect("stack underflow"));
+            }
+        }
+        (return_value, ty)
+    }
+
+    pub fn push_return_value(&mut self, value: Vec<u8>, ty: Type) {
+        match ty {
+            Type::Char(_) => {
+                for x in value {
+                    self.operand_stack.push(x);
+                }
+            }
+            Type::U8 | Type::I8 => {self.operand_stack.push(value[0]);}
+            Type::U16 | Type::I16 => {
+                self.operand_stack.push(value[1]);
+                self.operand_stack.push(value[0]);
+            }
+            Type::U32 | Type::I32 | Type::F32 => {
+                self.operand_stack.push(value[3]);
+                self.operand_stack.push(value[2]);
+                self.operand_stack.push(value[1]);
+                self.operand_stack.push(value[0]);
+            },
+            Type::U64 | Type::I64 | Type::F64 | Type::Reference => {
+                self.operand_stack.push(value[7]);
+                self.operand_stack.push(value[6]);
+                self.operand_stack.push(value[5]);
+                self.operand_stack.push(value[4]);
+                self.operand_stack.push(value[3]);
+                self.operand_stack.push(value[2]);
+                self.operand_stack.push(value[1]);
+                self.operand_stack.push(value[0]);
+            }
+        }
+        self.operand_stack_types.push(ty);
     }
 
     pub fn get_references(&self) -> Vec<Reference> {

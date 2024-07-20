@@ -6,7 +6,7 @@ pub mod object;
 pub mod bytecode;
 pub mod stack;
 
-pub enum ReturnType {
+pub enum ArgType {
     Unit,
     U8(u8),
     I8(i8),
@@ -22,7 +22,7 @@ pub enum ReturnType {
 }
     
 
-pub type RustNativeMethod = fn(&[object::Object]) -> CocoaResult<ReturnType>;
+pub type RustNativeMethod = fn(&[ArgType]) -> CocoaResult<ArgType>;
 
 pub type CocoaResult<T> = Result<T, ErrorInfo>;
 

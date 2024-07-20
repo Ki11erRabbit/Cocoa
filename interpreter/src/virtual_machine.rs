@@ -1,12 +1,13 @@
 mod object_table;
 mod machine;
 
+use definitions::ArgType;
 pub use object_table::ObjectTableSingleton;
 pub use machine::Machine;
 pub use machine::MethodTable;
 pub use machine::ObjectTable;
 
-use definitions::{object::Object, CocoaResult, ReturnType, RustNativeMethod};
+use definitions::{CocoaResult, RustNativeMethod};
 use once_cell::sync::Lazy;
 
 
@@ -36,7 +37,7 @@ impl MethodTable for NativeMethodTable {
 }
 
 
-fn hello_world(_: &[Object]) -> CocoaResult<ReturnType> {
+fn hello_world(_: &[ArgType]) -> CocoaResult<ArgType> {
     println!("Hello, world!");
-    Ok(ReturnType::U64(0))
+    Ok(ArgType::U64(0))
 }

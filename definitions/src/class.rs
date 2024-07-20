@@ -44,7 +44,7 @@ pub struct ClassInfo {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Method {
-    Native(NativeMethodIndex),
+    Native(NativeMethodIndex, usize),
     Bytecode(Box<[Bytecode]>, usize),
     Foreign {
         name: PoolIndex,
