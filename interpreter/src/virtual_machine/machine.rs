@@ -150,6 +150,13 @@ impl Machine<'_> {
             B::Less => {
                 self.stack.less()?;
             },
+            // Conversion
+            B::Convert(ty) => {
+                self.stack.convert(ty)?;
+            },
+            B::BinaryConvert(ty) => {
+                self.stack.binary_convert(ty)?;
+            },
             // Control Flow
             B::Goto(offset) => {
                 let pc = self.stack.get_current_pc();
@@ -242,11 +249,26 @@ impl Machine<'_> {
                     },
                     _ => panic!("Entry is not a method"),
                 }
-
+                
+            },
+            B::InvokeVirtual(pool_index) => {
+                self.invoke_virtual(self.stack.get_class_index(), pool_index)?;
             },
             B::Return => {
                 self.stack.return_value();
                 return Ok(());
+            },
+            // Object Related
+            B::New(pool_index) => {
+                let class_ref = self.stack.get_class_index();
+                let class = self.object_table.get_class(class_ref);
+                let class_info = class.get_constant_pool_entry(pool_index);
+                let class_ref = match class_info {
+                    PoolEntry::ClassInfo(info) => info.class_ref.unwrap(),
+                    _ => panic!("Expected class info"),
+                };
+                let object_ref = self.object_table.create_object(class_ref);
+                self.stack.push(object_ref);
             },
             _ => todo!(),
 
@@ -254,6 +276,33 @@ impl Machine<'_> {
 
         let pc = self.stack.get_current_pc();
         self.stack.set_current_pc(pc + 1);
+        Ok(())
+    }
+
+    fn invoke_virtual(&mut self, class_ref: Reference, method_index: PoolIndex) -> CocoaResult<()> {
+        let object_ref = StackUtils::<Reference>::pop(&mut self.stack);
+        StackUtils::<Reference>::push(&mut self.stack, object_ref);
+        let object = self.object_table.get_object(object_ref);
+        let class = self.object_table.get_class(class_ref);
+
+        let method = class.get_constant_pool_entry(method_index);
+
+        match method {
+            PoolEntry::Method(Method::Native(_, _)) => {
+                self.invoke_rust_native_method(class_ref, method_index)?;
+            }
+            PoolEntry::Method(Method::Bytecode(_, method_index)) => {
+                let pc = self.stack.get_current_pc();
+                self.stack.set_current_pc(pc + 1);
+                self.invoke_bytecode_method(object.get_class(), *method_index)?;
+                return Ok(());
+            },
+            PoolEntry::Method(Method::ForeignLinked { class_ref, method_index, .. }) => {
+                self.invoke_virtual(*class_ref, *method_index)?;
+                
+            },
+            _ => panic!("Entry is not a method"),
+        }
         Ok(())
     }
 
@@ -404,6 +453,14 @@ mod tests {
         Ok(ArgType::U64(0))
     }
 
+    fn print_object(args: &[ArgType]) -> CocoaResult<ArgType> {
+        match &args[0] {
+            ArgType::Reference(value) => println!("{:?}", value),
+            _ => panic!("Expected reference"),
+        }
+        Ok(ArgType::U64(0))
+    }
+
     struct TestObjectTable {
         objects: RefCell<Vec<Object>>,
         classes: RefCell<Vec<ClassHeader>>,
@@ -419,13 +476,34 @@ mod tests {
 
         fn add_object(&mut self, object: Object) -> Reference {
             self.objects.borrow_mut().push(object);
-            self.objects.borrow().len() as Reference
+            self.objects.borrow().len() - 1 as Reference
         }
     }
 
     impl ObjectTable for TestObjectTable {
         fn create_object(&self, class_ref: Reference) -> Reference {
-            todo!()
+
+            let class = self.get_class(class_ref);
+
+            let parent_info_index = class.get_parent_info();
+            let parent_info = class.get_constant_pool_entry(parent_info_index);
+            let parent_reference = match parent_info {
+                PoolEntry::ClassInfo(ClassInfo {class_ref: Some(class_ref), ..}) => {
+                    self.create_object(*class_ref)
+                }
+                PoolEntry::ClassInfo(ClassInfo {class_ref: None, ..}) => {
+                    0
+                }
+                _ => panic!("Entry was not a class info"),
+            };
+
+            // TODO: make this not include static members
+            let field_count = class.fields_count();
+
+            let object = Object::new(parent_reference, class_ref, field_count);
+
+            self.objects.borrow_mut().push(object);
+            self.objects.borrow().len() - 1 as Reference
         }
 
         fn add_class(&self, class: ClassHeader) -> Reference {
@@ -562,4 +640,52 @@ mod tests {
         vm.run_bootstrap(class_ref, 0).unwrap();
     }
 
+    #[test]
+    fn test_object_creation_and_method() {
+        let mut class = ClassHeader::new(9, 0, 0, 2);
+
+        class.set_parent_info(1);
+        class.set_this_info(0);
+
+        class.set_constant_pool_entry(0, PoolEntry::ClassInfo(ClassInfo {
+            name: 2,
+            class_ref: Some(0),
+        }));
+        class.set_constant_pool_entry(1, PoolEntry::ClassInfo(ClassInfo {
+            name: 3,
+            class_ref: None,
+        }));
+        class.set_constant_pool_entry(2, PoolEntry::String("Main"));
+        class.set_constant_pool_entry(3, PoolEntry::String("Object"));
+        class.set_constant_pool_entry(4, PoolEntry::Method(Method::Bytecode(vec![Bytecode::New(0), Bytecode::InvokeVirtual(5), Bytecode::Return].into(),0)));
+        class.set_constant_pool_entry(5, PoolEntry::Method(Method::Native(0, 1)));
+        class.set_constant_pool_entry(6, PoolEntry::TypeInfo(TypeInfo::Method { args: vec![], ret: Box::new(TypeInfo::U64) }));
+        class.set_constant_pool_entry(7, PoolEntry::TypeInfo(TypeInfo::Method { args: vec![TypeInfo::Object(3)], ret: Box::new(TypeInfo::U64) }));
+
+        class.set_method(0, MethodInfo {
+            flags: MethodFlags::Static,
+            name: 0,
+            type_info: 6,
+            location: 4,
+        });
+
+        class.set_method(1, MethodInfo {
+            flags: MethodFlags::Public,
+            name: 0,
+            type_info: 7,
+            location: 5,
+        });
+
+
+        let object_table = TestObjectTable::new();
+
+        let class_ref = object_table.add_class(class);
+        let mut method_table = TestMethodTable::new();
+
+        method_table.add_method(NativeMethod::Rust(print_object));
+
+        let mut vm = Machine::new(&object_table, &method_table);
+
+        vm.run_bootstrap(class_ref, 0).unwrap();
+    }
 }

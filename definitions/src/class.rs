@@ -51,6 +51,7 @@ pub enum Method {
     },
     ForeignLinked {
         class_ref: Reference,
+        method_index: PoolIndex,
         name: PoolIndex,
     },
 }

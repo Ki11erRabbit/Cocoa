@@ -2428,7 +2428,154 @@ impl StackFrame {
 
     pub fn negate(&mut self) -> CocoaResult<()> {
         let ty = self.operand_stack_types.pop().expect("Stack underflow");
-        todo!("Negate")
+        match ty {
+            Type::U8 => {
+                let val = self.operand_stack.pop().expect("Stack underflow");
+
+                if val > i8::MAX as u8 {
+                    todo!("Overflow");
+                }
+
+                let val = -(val as i8);
+                self.operand_stack.push(val.to_le_bytes()[0]);
+                self.operand_stack_types.push(Type::I8);
+            },
+            Type::I8 => {
+                let val = i8::from_le_bytes([self.operand_stack.pop().expect("Stack underflow")]);
+                let val = -val;
+                self.operand_stack.push(val.to_le_bytes()[0]);
+                self.operand_stack_types.push(Type::I8);
+            },
+            Type::U16 => {
+                let val_a = self.operand_stack.pop().expect("Stack underflow");
+                let val_b = self.operand_stack.pop().expect("Stack underflow");
+
+                if val_a > i16::MAX as u8 {
+                    todo!("Overflow");
+                }
+
+                let val = -(u16::from_le_bytes([val_b, val_a]) as i16);
+                self.operand_stack.push(val.to_le_bytes()[0]);
+                self.operand_stack.push(val.to_le_bytes()[1]);
+                self.operand_stack_types.push(Type::I16);
+            },
+            Type::I16 => {
+                let val_a = self.operand_stack.pop().expect("Stack underflow");
+                let val_b = self.operand_stack.pop().expect("Stack underflow");
+                let val = -i16::from_le_bytes([val_b, val_a]);
+                self.operand_stack.push(val.to_le_bytes()[0]);
+                self.operand_stack.push(val.to_le_bytes()[1]);
+                self.operand_stack_types.push(Type::I16);
+            },
+            Type::U32 => {
+                let val_a = self.operand_stack.pop().expect("Stack underflow");
+                let val_b = self.operand_stack.pop().expect("Stack underflow");
+                let val_c = self.operand_stack.pop().expect("Stack underflow");
+                let val_d = self.operand_stack.pop().expect("Stack underflow");
+
+                if val_a > i32::MAX as u8 {
+                    todo!("Overflow");
+                }
+
+                let val = -(u32::from_le_bytes([val_d, val_c, val_b, val_a]) as i32);
+                self.operand_stack.push(val.to_le_bytes()[0]);
+                self.operand_stack.push(val.to_le_bytes()[1]);
+                self.operand_stack.push(val.to_le_bytes()[2]);
+                self.operand_stack.push(val.to_le_bytes()[3]);
+                self.operand_stack_types.push(Type::I32);
+            },
+            Type::I32 => {
+                let val_a = self.operand_stack.pop().expect("Stack underflow");
+                let val_b = self.operand_stack.pop().expect("Stack underflow");
+                let val_c = self.operand_stack.pop().expect("Stack underflow");
+                let val_d = self.operand_stack.pop().expect("Stack underflow");
+                let val = -i32::from_le_bytes([val_d, val_c, val_b, val_a]);
+                self.operand_stack.push(val.to_le_bytes()[0]);
+                self.operand_stack.push(val.to_le_bytes()[1]);
+                self.operand_stack.push(val.to_le_bytes()[2]);
+                self.operand_stack.push(val.to_le_bytes()[3]);
+                self.operand_stack_types.push(Type::I32);
+            },
+            Type::U64 => {
+                let val_a = self.operand_stack.pop().expect("Stack underflow");
+                let val_b = self.operand_stack.pop().expect("Stack underflow");
+                let val_c = self.operand_stack.pop().expect("Stack underflow");
+                let val_d = self.operand_stack.pop().expect("Stack underflow");
+                let val_e = self.operand_stack.pop().expect("Stack underflow");
+                let val_f = self.operand_stack.pop().expect("Stack underflow");
+                let val_g = self.operand_stack.pop().expect("Stack underflow");
+                let val_h = self.operand_stack.pop().expect("Stack underflow");
+
+                if val_a > i64::MAX as u8 {
+                    todo!("Overflow");
+                }
+
+                let val = -(u64::from_le_bytes([val_h, val_g, val_f, val_e, val_d, val_c, val_b, val_a]) as i64);
+                self.operand_stack.push(val.to_le_bytes()[0]);
+                self.operand_stack.push(val.to_le_bytes()[1]);
+                self.operand_stack.push(val.to_le_bytes()[2]);
+                self.operand_stack.push(val.to_le_bytes()[3]);
+                self.operand_stack.push(val.to_le_bytes()[4]);
+                self.operand_stack.push(val.to_le_bytes()[5]);
+                self.operand_stack.push(val.to_le_bytes()[6]);
+                self.operand_stack.push(val.to_le_bytes()[7]);
+                self.operand_stack_types.push(Type::I64);
+            },
+            Type::I64 => {
+                let val_a = self.operand_stack.pop().expect("Stack underflow");
+                let val_b = self.operand_stack.pop().expect("Stack underflow");
+                let val_c = self.operand_stack.pop().expect("Stack underflow");
+                let val_d = self.operand_stack.pop().expect("Stack underflow");
+                let val_e = self.operand_stack.pop().expect("Stack underflow");
+                let val_f = self.operand_stack.pop().expect("Stack underflow");
+                let val_g = self.operand_stack.pop().expect("Stack underflow");
+                let val_h = self.operand_stack.pop().expect("Stack underflow");
+                let val = -i64::from_le_bytes([val_h, val_g, val_f, val_e, val_d, val_c, val_b, val_a]);
+                self.operand_stack.push(val.to_le_bytes()[0]);
+                self.operand_stack.push(val.to_le_bytes()[1]);
+                self.operand_stack.push(val.to_le_bytes()[2]);
+                self.operand_stack.push(val.to_le_bytes()[3]);
+                self.operand_stack.push(val.to_le_bytes()[4]);
+                self.operand_stack.push(val.to_le_bytes()[5]);
+                self.operand_stack.push(val.to_le_bytes()[6]);
+                self.operand_stack.push(val.to_le_bytes()[7]);
+                self.operand_stack_types.push(Type::I64);
+            },
+            Type::F32 => {
+                let val_a = self.operand_stack.pop().expect("Stack underflow");
+                let val_b = self.operand_stack.pop().expect("Stack underflow");
+                let val_c = self.operand_stack.pop().expect("Stack underflow");
+                let val_d = self.operand_stack.pop().expect("Stack underflow");
+                let val = -f32::from_le_bytes([val_d, val_c, val_b, val_a]);
+                self.operand_stack.push(val.to_le_bytes()[0]);
+                self.operand_stack.push(val.to_le_bytes()[1]);
+                self.operand_stack.push(val.to_le_bytes()[2]);
+                self.operand_stack.push(val.to_le_bytes()[3]);
+                self.operand_stack_types.push(Type::F32);
+            },
+            Type::F64 => {
+                let val_a = self.operand_stack.pop().expect("Stack underflow");
+                let val_b = self.operand_stack.pop().expect("Stack underflow");
+                let val_c = self.operand_stack.pop().expect("Stack underflow");
+                let val_d = self.operand_stack.pop().expect("Stack underflow");
+                let val_e = self.operand_stack.pop().expect("Stack underflow");
+                let val_f = self.operand_stack.pop().expect("Stack underflow");
+                let val_g = self.operand_stack.pop().expect("Stack underflow");
+                let val_h = self.operand_stack.pop().expect("Stack underflow");
+                let val = -f64::from_le_bytes([val_h, val_g, val_f, val_e, val_d, val_c, val_b, val_a]);
+                self.operand_stack.push(val.to_le_bytes()[0]);
+                self.operand_stack.push(val.to_le_bytes()[1]);
+                self.operand_stack.push(val.to_le_bytes()[2]);
+                self.operand_stack.push(val.to_le_bytes()[3]);
+                self.operand_stack.push(val.to_le_bytes()[4]);
+                self.operand_stack.push(val.to_le_bytes()[5]);
+                self.operand_stack.push(val.to_le_bytes()[6]);
+                self.operand_stack.push(val.to_le_bytes()[7]);
+                self.operand_stack_types.push(Type::F64);
+            },
+            _ => todo!("Type mismatch"),
+        }
+        Ok(())
     }
 
     pub fn equal(&mut self) -> CocoaResult<()> {
@@ -3070,7 +3217,24 @@ impl StackFrame {
     }
 
     pub fn binary_convert(&mut self, ty: Type) -> CocoaResult<()> {
-        todo!()
+        let stack_ty = self.operand_stack_types.pop().expect("Stack Underflow");
+
+        match stack_ty {
+            Type::U8 | Type::I8 => {
+                self.operand_stack_types.push(ty);
+            },
+            Type::U16 | Type::I16 => {
+                self.operand_stack_types.push(ty);
+            },
+            Type::U32 | Type::I32 | Type::F32 => {
+                self.operand_stack_types.push(ty);
+            },
+            Type::U64 | Type::I64 | Type::F64 => {
+                self.operand_stack_types.push(ty);
+            },
+            _ => todo!("Type mismatch"),
+        }
+       Ok(()) 
     }
 
 }
