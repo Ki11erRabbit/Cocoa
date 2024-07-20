@@ -12,6 +12,7 @@ pub trait StackUtils<T> {
     fn get_argument(&mut self, index: u8) -> T;
 }
 
+#[derive(Debug)]
 pub struct Stack {
     stack: Vec<StackFrame>,
 }

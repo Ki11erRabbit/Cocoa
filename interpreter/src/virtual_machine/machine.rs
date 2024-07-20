@@ -35,6 +35,11 @@ impl<'a> Machine<'a> {
 
 impl Machine<'_> {
 
+    fn increment_pc(&mut self) {
+        let pc = self.stack.get_current_pc();
+        self.stack.set_current_pc(pc + 1);
+    }
+
     fn get_instruction(&self) -> Bytecode {
         let class_ref = self.stack.get_class_index();
         let pc = self.stack.get_current_pc();
@@ -63,11 +68,11 @@ impl Machine<'_> {
 
     pub fn run(&mut self) -> CocoaResult<()> {
         loop {
-            let instruction = self.get_instruction();
-            self.execute_bytecode(instruction)?;
             if self.stack.is_empty() {
                 break;
-            }
+            } 
+            let instruction = self.get_instruction();
+            self.execute_bytecode(instruction)?;
         }
         Ok(())
     }
@@ -242,8 +247,8 @@ impl Machine<'_> {
                     }
                     PoolEntry::Method(Method::Bytecode(_, method_index)) => {
 
-                        let pc = self.stack.get_current_pc();
-                        self.stack.set_current_pc(pc + 1);
+                        self.increment_pc();
+                        
                         self.invoke_bytecode_method(self.stack.get_class_index(), *method_index)?;
                         return Ok(());
                     },
@@ -253,6 +258,7 @@ impl Machine<'_> {
             },
             B::InvokeVirtual(pool_index) => {
                 self.invoke_virtual(self.stack.get_class_index(), pool_index)?;
+                return Ok(());
             },
             B::Return => {
                 self.stack.return_value();
@@ -273,9 +279,7 @@ impl Machine<'_> {
             _ => todo!(),
 
         }
-
-        let pc = self.stack.get_current_pc();
-        self.stack.set_current_pc(pc + 1);
+        self.increment_pc();
         Ok(())
     }
 
@@ -289,11 +293,11 @@ impl Machine<'_> {
 
         match method {
             PoolEntry::Method(Method::Native(_, _)) => {
+                self.increment_pc();
                 self.invoke_rust_native_method(class_ref, method_index)?;
             }
             PoolEntry::Method(Method::Bytecode(_, method_index)) => {
-                let pc = self.stack.get_current_pc();
-                self.stack.set_current_pc(pc + 1);
+                self.increment_pc();
                 self.invoke_bytecode_method(object.get_class(), *method_index)?;
                 return Ok(());
             },

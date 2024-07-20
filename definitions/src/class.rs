@@ -1,3 +1,4 @@
+
 use crate::{bytecode::Bytecode, object::Reference};
 
 
@@ -54,6 +55,17 @@ pub enum Method {
         method_index: PoolIndex,
         name: PoolIndex,
     },
+}
+
+impl Method {
+    pub fn get_vtable_index(&self) -> usize {
+        match self {
+            Method::Native(index, _) => *index,
+            Method::Bytecode(_, index) => *index,
+            Method::Foreign { .. } => panic!("Foreign method has not yet been linked!"),
+            Method::ForeignLinked { method_index, .. } => *method_index,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -141,11 +153,185 @@ struct ClassHeaderPart4 {
     methods_count: usize,
 }
 
-#[derive(Debug, Copy, Eq, PartialEq)]
-pub struct ClassHeader(*const ());
+pub struct ClassHeaderBody<'a> {
+    this_info: PoolIndex,
+    parent_info: PoolIndex,
+    class_flags: ClassFlags,
+    constant_pool: Vec<PoolEntry<'a>>,
+    interfaces: Vec<PoolIndex>,
+    fields: Vec<FieldInfo>,
+    methods: Vec<MethodInfo>,
+}
 
+impl<'a> ClassHeaderBody<'a> {
+    pub fn new(constant_pool_size: usize, interfaces_count: usize, fields_count: usize, methods_count: usize) -> Self {
+        let mut constant_pool = Vec::with_capacity(constant_pool_size);
+        constant_pool.resize_with(constant_pool_size, || PoolEntry::U8(0));
+        let mut interfaces = Vec::with_capacity(interfaces_count);
+        interfaces.resize_with(interfaces_count, || 0);
+        let mut fields = Vec::with_capacity(fields_count);
+        fields.resize_with(fields_count, || FieldInfo {
+            name: 0,
+            flags: FieldFlags::empty(),
+            type_info: 0,
+        });
+        let mut methods = Vec::with_capacity(methods_count);
+        methods.resize_with(methods_count, || MethodInfo {
+            flags: MethodFlags::empty(),
+            name: 0,
+            type_info: 0,
+            location: 0,
+        });
+        
+        ClassHeaderBody {
+            this_info: 0,
+            parent_info: 0,
+            class_flags: ClassFlags::empty(),
+            constant_pool,
+            interfaces,
+            fields,
+            methods,
+        }
+    }
+
+}
+
+#[derive(Copy, Clone, Eq, PartialEq)]
+pub struct ClassHeader(*mut ClassHeaderBody<'static>);
 
 impl ClassHeader {
+    pub fn new(constant_pool_size: usize, interfaces_count: usize, fields_count: usize, methods_count: usize) -> Self {
+        use std::alloc::{alloc, Layout};
+
+        let layout = Layout::new::<ClassHeaderBody<'static>>();
+        unsafe {
+            let ptr = alloc(layout) as *mut ClassHeaderBody<'static>;
+            ptr.write(ClassHeaderBody::new(constant_pool_size, interfaces_count, fields_count, methods_count));
+            ClassHeader(ptr)
+        }
+    }
+
+    pub fn set_this_info(&mut self, this_info: PoolIndex) {
+        unsafe {
+            (*self.0).this_info = this_info;
+        }
+    }
+
+    pub fn get_this_info(&self) -> PoolIndex {
+        unsafe {
+            (*self.0).this_info
+        }
+    }
+
+    pub fn set_parent_info(&mut self, parent_info: PoolIndex) {
+        unsafe {
+            (*self.0).parent_info = parent_info;
+        }
+    }
+
+    pub fn get_parent_info(&self) -> PoolIndex {
+        unsafe {
+            (*self.0).parent_info
+        }
+    }
+
+    pub fn set_class_flags(&mut self, class_flags: ClassFlags) {
+        unsafe {
+            (*self.0).class_flags = class_flags;
+        }
+    }
+
+    pub fn get_class_flags(&self) -> ClassFlags {
+        unsafe {
+            (*self.0).class_flags
+        }
+    }
+
+    pub fn constant_pool_len(&self) -> usize {
+        unsafe {
+            (*self.0).constant_pool.len()
+        }
+    }
+
+    pub fn interfaces_count(&self) -> usize {
+        unsafe {
+            (*self.0).interfaces.len()
+        }
+    }
+
+    pub fn methods_count(&self) -> usize {
+        unsafe {
+            (*self.0).methods.len()
+        }
+    }
+
+    pub fn fields_count(&self) -> usize {
+        unsafe {
+            (*self.0).fields.len()
+        }
+    }
+
+    pub fn set_constant_pool_entry(&mut self, index: usize, entry: PoolEntry<'static>) {
+        unsafe {
+            (*self.0).constant_pool[index] = entry;
+        }
+    }
+
+    pub fn get_constant_pool_entry(&self, index: usize) -> &PoolEntry {
+        unsafe {
+            &(*self.0).constant_pool[index]
+        }
+    }
+
+    pub fn set_interface(&mut self, index: usize, interface: PoolIndex) {
+        unsafe {
+            (*self.0).interfaces[index] = interface;
+        }
+    }
+
+    pub fn get_interface(&self, index: usize) -> PoolIndex {
+        unsafe {
+            (*self.0).interfaces[index]
+        }
+    }
+
+    pub fn set_field(&mut self, index: usize, field: FieldInfo) {
+        unsafe {
+            (*self.0).fields[index] = field;
+        }
+    }
+
+    pub fn get_field(&self, index: usize) -> &FieldInfo {
+        unsafe {
+            &(*self.0).fields[index]
+        }
+    }
+
+    pub fn set_method(&mut self, index: usize, method: MethodInfo) {
+        unsafe {
+            (*self.0).methods[index] = method;
+        }
+    }
+
+    pub fn get_method(&self, index: usize) -> &MethodInfo {
+        unsafe {
+            &(*self.0).methods[index]
+        }
+    }
+
+    pub fn deallocate(&mut self) {
+        use std::alloc::{Layout, dealloc};
+        let layout = Layout::new::<ClassHeaderBody<'static>>();
+        let ptr = self.0 as *mut ClassHeaderBody<'static>;
+        unsafe {
+            core::ptr::drop_in_place(ptr);
+            dealloc(ptr as *mut u8, layout);
+        }
+    }
+
+}
+
+/*impl ClassHeader {
     pub fn new(constant_pool_size: usize, interfaces_count: usize, fields_count: usize, methods_count: usize) -> Self {
         use std::alloc::{alloc, Layout};
         let layout = Layout::new::<ClassHeaderPart1>();
@@ -407,6 +593,9 @@ impl ClassHeader {
         let ptr = ptr as *mut MethodInfo;
         let ptr = unsafe { ptr.add(index) };
         unsafe {
+            println!("Setting method at index {}", index);
+            println!("Method: {:?}", method);
+            println!("Method at ptr: {:?}", ptr.read());
             ptr.write(method);
         }
     }
@@ -484,11 +673,20 @@ impl ClassHeader {
         }
     }
 
-}
+}*/
 
-impl Clone for ClassHeader {
-    fn clone(&self) -> ClassHeader {
-        ClassHeader(self.0)
+
+impl std::fmt::Debug for ClassHeader {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ClassHeader")
+            .field("this_info", &self.get_this_info())
+            .field("parent_info", &self.get_parent_info())
+            .field("class_flags", &self.get_class_flags())
+            .field("constant_pool", &self.constant_pool_len())
+            .field("interfaces", &self.interfaces_count())
+            .field("fields", &self.fields_count())
+            .field("methods", &self.methods_count())
+            .finish()
     }
 }
 
@@ -536,19 +734,19 @@ mod tests {
     #[test]
     fn test_class_header_set_interface() {
         let mut header = ClassHeader::new(10, 5, 3, 4);
-        header.set_interface(5, 10);
-        assert_eq!(header.get_interface(5), 10);
+        header.set_interface(4, 10);
+        assert_eq!(header.get_interface(4), 10);
     }
 
     #[test]
     fn test_class_header_set_field() {
         let mut header = ClassHeader::new(10, 5, 3, 4);
-        header.set_field(5, FieldInfo {
+        header.set_field(2, FieldInfo {
             name: 10,
             flags: FieldFlags::Public,
             type_info: 2
         });
-        assert_eq!(*header.get_field(5), FieldInfo {
+        assert_eq!(*header.get_field(2), FieldInfo {
             name: 10,
             flags: FieldFlags::Public,
             type_info: 2
@@ -558,13 +756,13 @@ mod tests {
     #[test]
     fn test_class_header_set_method() {
         let mut header = ClassHeader::new(10, 5, 3, 4);
-        header.set_method(5, MethodInfo {
+        header.set_method(3, MethodInfo {
             name: 10,
             flags: MethodFlags::Public,
             type_info: 2,
             location: 3
         });
-        assert_eq!(*header.get_method(5), MethodInfo {
+        assert_eq!(*header.get_method(3), MethodInfo {
             name: 10,
             flags: MethodFlags::Public,
             type_info: 2,

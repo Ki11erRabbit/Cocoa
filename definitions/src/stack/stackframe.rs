@@ -60,6 +60,7 @@ pub trait StackFrameUtils<T> {
 
 pub type LocalVariable = usize;
 
+#[derive(Debug)]
 pub struct StackFrame {
     local_variables: Vec<LocalVariable>,
     local_variable_types: Vec<Type>,
