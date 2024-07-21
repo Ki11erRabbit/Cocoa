@@ -259,7 +259,9 @@ impl Machine<'_> {
                 return Ok(())
             },
             B::InvokeVirtual(method_index) => {
-                self.invoke_virtual(method_index)?;
+                let object_ref = StackUtils::<Reference>::pop(&mut self.stack);
+                StackUtils::<Reference>::push(&mut self.stack, object_ref);
+                self.invoke_virtual(object_ref, method_index)?;
                 return Ok(());
             },
             B::Return => {
@@ -285,9 +287,10 @@ impl Machine<'_> {
         Ok(())
     }
 
-    fn invoke_virtual(&mut self, method_index: MethodIndex) -> CocoaResult<()> {
-        let object_ref = StackUtils::<Reference>::pop(&mut self.stack);
-        StackUtils::<Reference>::push(&mut self.stack, object_ref);
+    fn invoke_virtual(&mut self, object_ref: Reference, method_index: MethodIndex) -> CocoaResult<()> {
+        if object_ref == 0 {
+            panic!("Attempted to invoke method on null object");
+        }
         let object = self.object_table.get_object(object_ref);
         let class = self.object_table.get_class(object.get_class());
 
@@ -304,6 +307,10 @@ impl Machine<'_> {
                 self.invoke_bytecode_method(object.get_class(), method_index)?;
                 return Ok(());
             },
+            PoolEntry::Method(Method::Foreign) => {
+                let parent_ref = object.get_parent();
+                self.invoke_virtual(parent_ref, method_index)?;
+            }
             _ => panic!("Entry is not a method"),
         }
         Ok(())
@@ -465,7 +472,7 @@ mod tests {
     impl TestObjectTable {
         fn new() -> Self {
             TestObjectTable {
-                objects: RefCell::new(Vec::new()),
+                objects: RefCell::new(vec![Object::new(0,0,0)]),
                 classes: RefCell::new(Vec::new()),
             }
         }
@@ -508,6 +515,10 @@ mod tests {
         }
 
         fn get_object(&self, object_ref: Reference) -> Object {
+            if object_ref == 0 {
+                panic!("Attempted to get object 0");
+            }
+                       
             self.objects.borrow()[object_ref as usize].clone()
         }
 
@@ -685,6 +696,97 @@ mod tests {
         let constant_pool = ConstantPoolSingleton::new();
         let mut linker = Linker::new(&constant_pool);
         linker.link_classes(&mut [class]);
+
+
+        let object_table = TestObjectTable::new();
+
+        let class_ref = object_table.add_class(class);
+        let mut method_table = TestMethodTable::new();
+
+        method_table.add_method(NativeMethod::Rust(print_object));
+
+        let mut vm = Machine::new(&object_table, &method_table, &constant_pool);
+
+        vm.run_bootstrap(class_ref, 0).unwrap();
+    }
+
+    #[test]
+    fn test_object_inheritance() {
+        let mut class = ClassHeader::new(10, 0, 0, 2);
+
+        class.set_parent_info(1);
+        class.set_this_info(0);
+
+        class.set_constant_pool_entry(0, PoolEntry::ClassInfo(ClassInfo {
+            name: 2,
+            class_ref: Some(0),
+        }));
+        class.set_constant_pool_entry(1, PoolEntry::ClassInfo(ClassInfo {
+            name: 3,
+            class_ref: None,
+        }));
+        class.set_constant_pool_entry(2, PoolEntry::String("MainBase".to_owned()));
+        class.set_constant_pool_entry(3, PoolEntry::String("Object".to_owned()));
+        class.set_constant_pool_entry(4, PoolEntry::Method(Method::Bytecode(vec![Bytecode::New(0), Bytecode::InvokeVirtual(1), Bytecode::Return].into())));
+        class.set_constant_pool_entry(5, PoolEntry::Method(Method::Native(0)));
+        class.set_constant_pool_entry(6, PoolEntry::TypeInfo(TypeInfo::Method { args: vec![], ret: Box::new(TypeInfo::U64) }));
+        class.set_constant_pool_entry(7, PoolEntry::TypeInfo(TypeInfo::Method { args: vec![TypeInfo::Object(3)], ret: Box::new(TypeInfo::U64) }));
+        class.set_constant_pool_entry(8, PoolEntry::String("printRef".to_owned()));
+
+        class.set_method(0, MethodInfo {
+            flags: MethodFlags::Static,
+            name: 2,
+            type_info: 6,
+            location: 4,
+        });
+
+        class.set_method(1, MethodInfo {
+            flags: MethodFlags::Public,
+            name: 8,
+            type_info: 7,
+            location: 5,
+        });
+        
+        let parent_class = class;
+        
+        let mut class = ClassHeader::new(10, 0, 0, 2);
+
+        class.set_parent_info(1);
+        class.set_this_info(0);
+
+        class.set_constant_pool_entry(0, PoolEntry::ClassInfo(ClassInfo {
+            name: 2,
+            class_ref: Some(0),
+        }));
+        class.set_constant_pool_entry(1, PoolEntry::ClassInfo(ClassInfo {
+            name: 3,
+            class_ref: None,
+        }));
+        class.set_constant_pool_entry(2, PoolEntry::String("Main".to_owned()));
+        class.set_constant_pool_entry(3, PoolEntry::String("MainBase".to_owned()));
+        class.set_constant_pool_entry(4, PoolEntry::Method(Method::Bytecode(vec![Bytecode::New(0), Bytecode::InvokeVirtual(1), Bytecode::Return].into())));
+        class.set_constant_pool_entry(5, PoolEntry::Method(Method::Foreign));
+        class.set_constant_pool_entry(6, PoolEntry::TypeInfo(TypeInfo::Method { args: vec![], ret: Box::new(TypeInfo::U64) }));
+        class.set_constant_pool_entry(7, PoolEntry::TypeInfo(TypeInfo::Method { args: vec![TypeInfo::Object(3)], ret: Box::new(TypeInfo::U64) }));
+        class.set_constant_pool_entry(8, PoolEntry::String("printRef".to_owned()));
+
+        class.set_method(0, MethodInfo {
+            flags: MethodFlags::Static,
+            name: 2,
+            type_info: 6,
+            location: 4,
+        });
+
+        class.set_method(1, MethodInfo {
+            flags: MethodFlags::Public,
+            name: 8,
+            type_info: 7,
+            location: 5,
+        });
+
+        let constant_pool = ConstantPoolSingleton::new();
+        let mut linker = Linker::new(&constant_pool);
+        linker.link_classes(&mut [parent_class, class]);
 
 
         let object_table = TestObjectTable::new();

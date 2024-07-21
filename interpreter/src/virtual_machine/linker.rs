@@ -216,13 +216,6 @@ impl Linker<'_> {
             };
 
             let method_location = match method {
-                Method::Foreign => {
-                    let key = format!("Method: {} {}", parent_name, method_name);
-                    let Some(location) = self.pool_mapper.get(&key) else {
-                        return false;
-                    };
-                    *location
-                }
                 method => {
                     let key = format!("Method: {} {}", name, method_name);
                     if !self.pool_mapper.contains_key(&key) {
@@ -242,6 +235,8 @@ impl Linker<'_> {
             method_info.location = method_indices[i];
             method_info.name = name_indices[i];
             method_info.type_info = type_indices[i];
+            println!("Method: {:?}", method_info);
+                   
         }
         
         true
