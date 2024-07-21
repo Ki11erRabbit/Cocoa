@@ -23,7 +23,7 @@ enum NativeMethod {
 
 static NATIVE_METHOD_TABLE: Lazy<Vec<NativeMethod>> = Lazy::new(|| {
     vec![
-        NativeMethod::Rust(hello_world),
+        NativeMethod::Rust(print_object),
 ]});
 
 pub struct NativeMethodTable {}
@@ -44,5 +44,13 @@ impl MethodTable for NativeMethodTable {
 
 fn hello_world(_: &[ArgType]) -> CocoaResult<ArgType> {
     println!("Hello, world!");
+    Ok(ArgType::U64(0))
+}
+
+fn print_object(args: &[ArgType]) -> CocoaResult<ArgType> {
+    match &args[0] {
+        ArgType::Reference(value) => println!("{:?}", value),
+        _ => panic!("Expected reference"),
+    }
     Ok(ArgType::U64(0))
 }

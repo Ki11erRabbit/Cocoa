@@ -288,7 +288,6 @@ impl Machine<'_> {
     }
 
     fn invoke_virtual(&mut self, object_ref: Reference, method_index: MethodIndex) -> CocoaResult<()> {
-        println!("Object Ref: {}", object_ref);
         if object_ref == 0 {
             panic!("Attempted to invoke method on null object");
         }
@@ -437,6 +436,7 @@ impl Machine<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sequential_test::sequential;
     use std::cell::RefCell;
     use crate::virtual_machine::NativeMethod;
     use definitions::{bytecode::Bytecode, class::{ClassHeader, ClassInfo, Method, MethodFlags, MethodInfo, PoolEntry, PoolIndex}, object::{Object, Reference}, ArgType};
@@ -551,6 +551,7 @@ mod tests {
     }
 
     #[test]
+    #[sequential]
     fn test_hello_world() {
         let mut class = ClassHeader::new(9, 0, 0, 2);
 
@@ -588,12 +589,11 @@ mod tests {
         });
         
         let constant_pool = ConstantPoolSingleton::new();
-        let mut linker = Linker::new(&constant_pool);
-        linker.link_classes(&mut [class]);
-
         let object_table = TestObjectTable::new();
+        let mut linker = Linker::new(&constant_pool, &object_table);
 
-        let class_ref = object_table.add_class(class);
+        let (class_ref, method_index) = linker.link_classes(vec![class], "Main", "Main");
+
         let mut method_table = TestMethodTable::new();
 
         method_table.add_method(NativeMethod::Rust(hello_world));
@@ -601,10 +601,11 @@ mod tests {
 
         let mut vm = Machine::new(&object_table, &method_table, &constant_pool);
 
-        vm.run_bootstrap(class_ref, 0).unwrap();
+        vm.run_bootstrap(class_ref, method_index).unwrap();
     }
 
     #[test]
+    #[sequential]
     fn test_print_i32() {
         let mut class = ClassHeader::new(10, 0, 0, 2);
 
@@ -643,22 +644,22 @@ mod tests {
         });
 
         let constant_pool = ConstantPoolSingleton::new();
-        let mut linker = Linker::new(&constant_pool);
-        linker.link_classes(&mut [class]);
-
         let object_table = TestObjectTable::new();
+        let mut linker = Linker::new(&constant_pool, &object_table);
 
-        let class_ref = object_table.add_class(class);
+        let (class_ref, method_index) = linker.link_classes(vec![class], "Main", "Main");
+
         let mut method_table = TestMethodTable::new();
 
         method_table.add_method(NativeMethod::Rust(print_i32));
 
         let mut vm = Machine::new(&object_table, &method_table, &constant_pool);
 
-        vm.run_bootstrap(class_ref, 0).unwrap();
+        vm.run_bootstrap(class_ref, method_index).unwrap();
     }
 
     #[test]
+    #[sequential]
     fn test_object_creation_and_method() {
         let mut class = ClassHeader::new(10, 0, 0, 2);
 
@@ -696,23 +697,22 @@ mod tests {
         });
 
         let constant_pool = ConstantPoolSingleton::new();
-        let mut linker = Linker::new(&constant_pool);
-        linker.link_classes(&mut [class]);
-
-
         let object_table = TestObjectTable::new();
+        let mut linker = Linker::new(&constant_pool, &object_table);
 
-        let class_ref = object_table.add_class(class);
+        let (class_ref, method_index) = linker.link_classes(vec![class], "Main", "Main");
+
         let mut method_table = TestMethodTable::new();
 
         method_table.add_method(NativeMethod::Rust(print_object));
 
         let mut vm = Machine::new(&object_table, &method_table, &constant_pool);
 
-        vm.run_bootstrap(class_ref, 0).unwrap();
+        vm.run_bootstrap(class_ref, method_index).unwrap();
     }
 
     #[test]
+    #[sequential]
     fn test_object_inheritance() {
         let mut class = ClassHeader::new(10, 0, 0, 2);
 
@@ -787,19 +787,17 @@ mod tests {
         });
 
         let constant_pool = ConstantPoolSingleton::new();
-        let mut linker = Linker::new(&constant_pool);
-        linker.link_classes(&mut [parent_class, class]);
-
-
         let object_table = TestObjectTable::new();
+        let mut linker = Linker::new(&constant_pool, &object_table);
 
-        let class_ref = object_table.add_class(class);
+        let (class_ref, method_index) = linker.link_classes(vec![parent_class, class], "Main", "Main");
+
         let mut method_table = TestMethodTable::new();
 
         method_table.add_method(NativeMethod::Rust(print_object));
 
         let mut vm = Machine::new(&object_table, &method_table, &constant_pool);
 
-        vm.run_bootstrap(class_ref, 0).unwrap();
+        vm.run_bootstrap(class_ref, method_index).unwrap();
     }
 }

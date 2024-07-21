@@ -9,3 +9,4 @@ debug = true
 [dependencies]
 definitions = { workspace = true }
 once_cell = "1.19.0"
+sequential-test = "0.2.4"
