@@ -288,6 +288,7 @@ impl Machine<'_> {
     }
 
     fn invoke_virtual(&mut self, object_ref: Reference, method_index: MethodIndex) -> CocoaResult<()> {
+        println!("Object Ref: {}", object_ref);
         if object_ref == 0 {
             panic!("Attempted to invoke method on null object");
         }
@@ -307,7 +308,7 @@ impl Machine<'_> {
                 self.invoke_bytecode_method(object.get_class(), method_index)?;
                 return Ok(());
             },
-            PoolEntry::Method(Method::Foreign) => {
+            PoolEntry::Method(Method::Foreign(method_index)) => {
                 let parent_ref = object.get_parent();
                 self.invoke_virtual(parent_ref, method_index)?;
             }
@@ -506,6 +507,7 @@ mod tests {
             let object = Object::new(parent_reference, class_ref, field_count);
 
             self.objects.borrow_mut().push(object);
+            println!("{}", self.objects.borrow().len() - 1);
             self.objects.borrow().len() - 1 as Reference
         }
 
@@ -765,7 +767,7 @@ mod tests {
         class.set_constant_pool_entry(2, PoolEntry::String("Main".to_owned()));
         class.set_constant_pool_entry(3, PoolEntry::String("MainBase".to_owned()));
         class.set_constant_pool_entry(4, PoolEntry::Method(Method::Bytecode(vec![Bytecode::New(0), Bytecode::InvokeVirtual(1), Bytecode::Return].into())));
-        class.set_constant_pool_entry(5, PoolEntry::Method(Method::Foreign));
+        class.set_constant_pool_entry(5, PoolEntry::Method(Method::Foreign(1)));
         class.set_constant_pool_entry(6, PoolEntry::TypeInfo(TypeInfo::Method { args: vec![], ret: Box::new(TypeInfo::U64) }));
         class.set_constant_pool_entry(7, PoolEntry::TypeInfo(TypeInfo::Method { args: vec![TypeInfo::Object(3)], ret: Box::new(TypeInfo::U64) }));
         class.set_constant_pool_entry(8, PoolEntry::String("printRef".to_owned()));

@@ -43,18 +43,17 @@ fn main() {
     });
 
     let constant_pool = ConstantPoolSingleton::new();
-
-    let mut linker = Linker::new(&constant_pool);
-
-    linker.link_classes(&mut [class]);
-
-
     let object_table = ObjectTableSingleton::get_singleton();
 
-    let class_ref = object_table.add_class(class);
+    let mut linker = Linker::new(&constant_pool, &object_table);
+
+    let (class_ref, method_index) = linker.link_classes(vec![class], "Main", "Main");
+
+
+
     let method_table = NativeMethodTable::get_table();
 
     let mut vm = Machine::new(&object_table, &method_table, &constant_pool);
 
-    vm.run_bootstrap(class_ref, 0).unwrap();
+    vm.run_bootstrap(class_ref, method_index).unwrap();
 }

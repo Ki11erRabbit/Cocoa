@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use definitions::class::{ClassHeader, Method, PoolEntry, PoolIndex};
+use definitions::{bytecode::MethodIndex, class::{ClassHeader, PoolEntry, PoolIndex}, object::Reference};
 
-use super::ConstantPool;
+use super::{ConstantPool, ObjectTable};
 
 
 
@@ -12,55 +12,94 @@ use super::ConstantPool;
 pub struct Linker<'a> {
     pool_mapper: HashMap<String, PoolIndex>,
     constant_pool: &'a dyn ConstantPool,
+    object_table: &'a dyn ObjectTable,
 }
 
 impl<'a> Linker<'a> {
-    pub fn new(constant_pool: &'a dyn ConstantPool) -> Self {
+    pub fn new(constant_pool: &'a dyn ConstantPool, object_table: &'a dyn ObjectTable) -> Self {
         Self {
             pool_mapper: HashMap::new(),
             constant_pool,
+            object_table,
         }
     }
 }
 impl Linker<'_> {
 
-    pub fn link_classes(&mut self, classes: &mut [ClassHeader]) {
+    pub fn link_classes(&mut self, classes: Vec<ClassHeader>, main_class: &str, main_method: &str) -> (Reference, MethodIndex) {
         let mut deffered = Vec::new();
 
-        for (index, class) in classes.iter_mut().enumerate() {
-            if !self.link_class(class) {
-                deffered.push(index);
+        for class in classes.into_iter() {
+            if let Some(class) = self.link_class(class) {
+                deffered.push(class);
             }
         }
 
         while !deffered.is_empty() {
             let mut new_deffered = Vec::new();
-            for index in deffered {
-                if self.link_class(&mut classes[index]) {
-                    new_deffered.push(index);
+            for class in deffered.into_iter() {
+                if let Some(class) = self.link_class(class) {
+                    new_deffered.push(class);
                 }
             }
             deffered = new_deffered;
         }
 
+        let class_info_location = self.pool_mapper.get(&format!("ClassInfo: {}", main_class)).expect("Main class not found");
+        let class_info = self.constant_pool.get_constant(*class_info_location);
+        let class_info = match class_info {
+            PoolEntry::ClassInfo(class_info) => class_info,
+            x => panic!("Invalid class info {:?}", x),
+        };
 
+        let class_ref = class_info.class_ref.expect("Main class not linked");
+
+        let class = self.object_table.get_class(class_ref);
+        let (method, _) = class.methods().iter().enumerate().find(|(_, method)| {
+            let name = self.constant_pool.get_constant(method.name);
+            let name = match name {
+                PoolEntry::String(string) => string,
+                x => panic!("Invalid method name {:?}", x),
+            };
+            name == main_method
+        }).expect("Main method not found");
+
+        (class_ref, method)
     }
 
-    fn link_class(&mut self, class: &mut ClassHeader) -> bool {
+    fn link_class(&mut self, mut class: ClassHeader) -> Option<ClassHeader> {
         let mut skip_indicies = Vec::new();
-        let (name, parent_name) = self.link_class_info(class, &mut skip_indicies);
-        self.link_interfaces(class, &mut skip_indicies);
+        let (name, this_info_location) = self.link_class_info(&mut class, &mut skip_indicies);
 
-        if !self.link_methods(class, &mut skip_indicies, &name, &parent_name) {
-            return false;
+        let class_ref = self.object_table.add_class(class);
+        let mut class = self.object_table.get_class(class_ref);
+
+
+        
+        let entry = self.constant_pool.get_constant(this_info_location);
+        match entry {
+            PoolEntry::ClassInfo(mut class_info) => {
+                class_info.class_ref = Some(class_ref);
+                self.constant_pool.set_constant(this_info_location, PoolEntry::ClassInfo(class_info));
+            },
+            _ => panic!("Invalid class info"),
+        }
+        
+        self.link_interfaces(&mut class, &mut skip_indicies);
+
+        if !self.link_methods(&mut class, &mut skip_indicies, &name) {
+            return Some(class);
         }
 
         // TODO: find static members and put their default values in the constant_pool
 
-        true
+
+
+
+        None
     }
 
-    fn link_class_info(&mut self, class: &ClassHeader, skip_indices: &mut Vec<PoolIndex>) -> (String, String) {
+    fn link_class_info(&mut self, class: &mut ClassHeader, skip_indices: &mut Vec<PoolIndex>) -> (String, usize) {
         let index = class.get_this_info();
         let entry = class.get_constant_pool_entry(index);
         let class_info = match entry {
@@ -87,7 +126,7 @@ impl Linker<'_> {
         class_info.name = location;
 
         let key = format!("ClassInfo: {}", name);
-        if !self.pool_mapper.contains_key(&key) {
+        let location = if !self.pool_mapper.contains_key(&key) {
             let location = self.constant_pool.add_constant(PoolEntry::ClassInfo(class_info));
             self.pool_mapper.insert(key, location);
             location
@@ -95,7 +134,8 @@ impl Linker<'_> {
             *self.pool_mapper.get(&key).unwrap()
         };
 
-
+        let this_info_location = location;
+        
         let index = class.get_parent_info();
         let entry = class.get_constant_pool_entry(index);
         let class_info = match entry {
@@ -127,7 +167,7 @@ impl Linker<'_> {
             self.pool_mapper.insert(class_info_key, location);
         }
 
-        (name.clone(), parent_name)
+        (name.clone(), this_info_location)
     }
 
     fn link_interfaces(&mut self, class: &ClassHeader, skip_indices: &mut Vec<PoolIndex>) {
@@ -165,7 +205,7 @@ impl Linker<'_> {
         }
     }
 
-    fn link_methods(&mut self, class: &mut ClassHeader, skip_indices: &mut Vec<PoolIndex>, name: &str, parent_name: &str) -> bool {
+    fn link_methods(&mut self, class: &mut ClassHeader, skip_indices: &mut Vec<PoolIndex>, name: &str) -> bool {
         let mut method_indices = Vec::new();
         let mut type_indices = Vec::new();
         let mut name_indices = Vec::new();
@@ -235,7 +275,6 @@ impl Linker<'_> {
             method_info.location = method_indices[i];
             method_info.name = name_indices[i];
             method_info.type_info = type_indices[i];
-            println!("Method: {:?}", method_info);
                    
         }
         

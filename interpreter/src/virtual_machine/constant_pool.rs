@@ -10,7 +10,7 @@ static CONSTANT_POOL: Lazy<RawConstantPool> = Lazy::new(|| {
     RawConstantPool::new()
 });
 
-
+#[derive(Debug)]
 struct RawConstantPool {
     pool: RwLock<Vec<PoolEntry>>,
 }

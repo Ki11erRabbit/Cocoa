@@ -1,5 +1,5 @@
 
-use crate::{bytecode::Bytecode, object::Reference};
+use crate::{bytecode::{Bytecode, MethodIndex}, object::Reference};
 
 
 
@@ -47,7 +47,7 @@ pub struct ClassInfo {
 pub enum Method {
     Native(NativeMethodIndex),
     Bytecode(Box<[Bytecode]>),
-    Foreign,
+    Foreign(MethodIndex),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
