@@ -554,7 +554,7 @@ mod tests {
         }));
         class.set_constant_pool_entry(2, PoolEntry::String("Main".to_owned()));
         class.set_constant_pool_entry(3, PoolEntry::String("Object".to_owned()));
-        class.set_constant_pool_entry(4, PoolEntry::Method(Method::Bytecode(vec![Bytecode::InvokeStatic(5), Bytecode::Return].into())));
+        class.set_constant_pool_entry(4, PoolEntry::Method(Method::Bytecode(vec![Bytecode::InvokeStatic(1), Bytecode::Return].into())));
         class.set_constant_pool_entry(5, PoolEntry::Method(Method::Native(0)));
         class.set_constant_pool_entry(6, PoolEntry::TypeInfo(TypeInfo::Method { args: vec![], ret: Box::new(TypeInfo::U64) }));
         class.set_constant_pool_entry(7, PoolEntry::TypeInfo(TypeInfo::Method { args: vec![], ret: Box::new(TypeInfo::U64) }));
@@ -608,7 +608,7 @@ mod tests {
         }));
         class.set_constant_pool_entry(2, PoolEntry::String("Main".to_owned()));
         class.set_constant_pool_entry(3, PoolEntry::String("Object".to_owned()));
-        class.set_constant_pool_entry(4, PoolEntry::Method(Method::Bytecode(vec![Bytecode::LoadConstant(8), Bytecode::InvokeStatic(5), Bytecode::Return].into())));
+        class.set_constant_pool_entry(4, PoolEntry::Method(Method::Bytecode(vec![Bytecode::LoadConstant(8), Bytecode::InvokeStatic(1), Bytecode::Return].into())));
         class.set_constant_pool_entry(5, PoolEntry::Method(Method::Native(0)));
         class.set_constant_pool_entry(6, PoolEntry::TypeInfo(TypeInfo::Method { args: vec![], ret: Box::new(TypeInfo::U64) }));
         class.set_constant_pool_entry(7, PoolEntry::TypeInfo(TypeInfo::Method { args: vec![TypeInfo::I32], ret: Box::new(TypeInfo::U64) }));
@@ -662,7 +662,7 @@ mod tests {
         }));
         class.set_constant_pool_entry(2, PoolEntry::String("Main".to_owned()));
         class.set_constant_pool_entry(3, PoolEntry::String("Object".to_owned()));
-        class.set_constant_pool_entry(4, PoolEntry::Method(Method::Bytecode(vec![Bytecode::New(0), Bytecode::InvokeVirtual(5), Bytecode::Return].into())));
+        class.set_constant_pool_entry(4, PoolEntry::Method(Method::Bytecode(vec![Bytecode::New(0), Bytecode::InvokeVirtual(1), Bytecode::Return].into())));
         class.set_constant_pool_entry(5, PoolEntry::Method(Method::Native(0)));
         class.set_constant_pool_entry(6, PoolEntry::TypeInfo(TypeInfo::Method { args: vec![], ret: Box::new(TypeInfo::U64) }));
         class.set_constant_pool_entry(7, PoolEntry::TypeInfo(TypeInfo::Method { args: vec![TypeInfo::Object(3)], ret: Box::new(TypeInfo::U64) }));
@@ -670,7 +670,7 @@ mod tests {
 
         class.set_method(0, MethodInfo {
             flags: MethodFlags::Static,
-            name: 0,
+            name: 2,
             type_info: 6,
             location: 4,
         });
