@@ -1,6 +1,5 @@
-use std::os::unix::raw::off_t;
 
-use definitions::{bytecode::{Bytecode, Offset}, class::{ClassHeader, Method, NativeMethodIndex, PoolEntry, PoolIndex, TypeInfo}, object::{Object, Reference}, stack::{Stack, StackUtils}, ArgType, CocoaResult};
+use definitions::{bytecode::{Bytecode, MethodIndex}, class::{ClassHeader, Method, NativeMethodIndex, PoolEntry, PoolIndex, TypeInfo}, object::{Object, Reference}, stack::{Stack, StackUtils}, ArgType, CocoaResult};
 
 use crate::virtual_machine::NativeMethod;
 
@@ -16,19 +15,26 @@ pub trait MethodTable {
     fn get_method(&self, method_index: PoolIndex) -> NativeMethod;
 }
 
+pub trait ConstantPool {
+    fn add_constant(&self, entry: PoolEntry) -> PoolIndex;
+    fn set_constant(&self, index: PoolIndex, entry: PoolEntry);
+    fn get_constant(&self, index: PoolIndex) -> PoolEntry;
+}
+
 pub struct Machine<'a> {
     stack: Stack,
     object_table: &'a dyn ObjectTable,
     method_table: &'a dyn MethodTable,
-    
+    constant_pool: &'a dyn ConstantPool,
 }
 
 impl<'a> Machine<'a> {
-    pub fn new(object_table: &'a dyn ObjectTable, method_table: &'a dyn MethodTable) -> Machine<'a> {
+    pub fn new(object_table: &'a dyn ObjectTable, method_table: &'a dyn MethodTable, constant_pool: &'a dyn ConstantPool) -> Machine<'a> {
         Machine {
             stack: Stack::new(),
             object_table,
             method_table,
+            constant_pool,
         }
     }
 }
@@ -51,9 +57,9 @@ impl Machine<'_> {
         let method_info = class.get_method(method_index);
         let method_location = method_info.location;
 
-        let method = class.get_constant_pool_entry(method_location);
+        let method = self.constant_pool.get_constant(method_location);
         let bytecode = match &method {
-            PoolEntry::Method(Method::Bytecode(bytecode, _)) => bytecode,
+            PoolEntry::Method(Method::Bytecode(bytecode)) => bytecode,
             x => panic!("Entry is not a method {:?}", x),
         };
         
@@ -234,30 +240,25 @@ impl Machine<'_> {
                     return Ok(());
                 }
             },
-            B::InvokeStatic(pool_index) => {
+            B::InvokeStatic(method_index) => {
                 let class_ref = self.stack.get_class_index();
-
                 let class = self.object_table.get_class(class_ref);
-
-                let method = class.get_constant_pool_entry(pool_index);
-                // TODO: Check if actually static
+                let method_info = class.get_method(method_index);
+                let method = self.constant_pool.get_constant(method_info.location);
                 match method {
-                    PoolEntry::Method(Method::Native(_,_)) => {
-                        self.invoke_rust_native_method(class_ref, pool_index)?;
-                    }
-                    PoolEntry::Method(Method::Bytecode(_, method_index)) => {
-
-                        self.increment_pc();
-                        
-                        self.invoke_bytecode_method(self.stack.get_class_index(), *method_index)?;
-                        return Ok(());
+                    PoolEntry::Method(Method::Native(native_method_index)) => {
+                        self.invoke_rust_native_method(class_ref, native_method_index, method_info.type_info)?;
                     },
+                    PoolEntry::Method(Method::Bytecode(_)) => {
+                        self.increment_pc();
+                        self.invoke_bytecode_method(class_ref, method_info.location)?
+                    }
                     _ => panic!("Entry is not a method"),
                 }
-                
+                return Ok(())
             },
-            B::InvokeVirtual(pool_index) => {
-                self.invoke_virtual(self.stack.get_class_index(), pool_index)?;
+            B::InvokeVirtual(method_index) => {
+                self.invoke_virtual(method_index)?;
                 return Ok(());
             },
             B::Return => {
@@ -283,27 +284,24 @@ impl Machine<'_> {
         Ok(())
     }
 
-    fn invoke_virtual(&mut self, class_ref: Reference, method_index: PoolIndex) -> CocoaResult<()> {
+    fn invoke_virtual(&mut self, method_index: MethodIndex) -> CocoaResult<()> {
         let object_ref = StackUtils::<Reference>::pop(&mut self.stack);
         StackUtils::<Reference>::push(&mut self.stack, object_ref);
         let object = self.object_table.get_object(object_ref);
-        let class = self.object_table.get_class(class_ref);
+        let class = self.object_table.get_class(object.get_class());
 
-        let method = class.get_constant_pool_entry(method_index);
+        let method_info = class.get_method(method_index);
 
+        let method = self.constant_pool.get_constant(method_info.location);
         match method {
-            PoolEntry::Method(Method::Native(_, _)) => {
+            PoolEntry::Method(Method::Native(native_method_index)) => {
                 self.increment_pc();
-                self.invoke_rust_native_method(class_ref, method_index)?;
+                self.invoke_rust_native_method(object.get_class(), native_method_index, method_info.type_info)?;
             }
-            PoolEntry::Method(Method::Bytecode(_, method_index)) => {
+            PoolEntry::Method(Method::Bytecode(_)) => {
                 self.increment_pc();
-                self.invoke_bytecode_method(object.get_class(), *method_index)?;
+                self.invoke_bytecode_method(object.get_class(), method_info.location)?;
                 return Ok(());
-            },
-            PoolEntry::Method(Method::ForeignLinked { class_ref, method_index, .. }) => {
-                self.invoke_virtual(*class_ref, *method_index)?;
-                
             },
             _ => panic!("Entry is not a method"),
         }
@@ -314,7 +312,7 @@ impl Machine<'_> {
         let class = self.object_table.get_class(class_ref);
         let method_info = class.get_method(method_index);
 
-        let method_type_info = class.get_constant_pool_entry(method_info.type_info);
+        let method_type_info = self.constant_pool.get_constant(method_info.type_info);
         let method_type_info = match method_type_info {
             PoolEntry::TypeInfo(info) => info,
             _ => panic!("Expected type info"),
@@ -348,88 +346,81 @@ impl Machine<'_> {
         Ok(())
     }
 
-    fn invoke_rust_native_method(&mut self, class_ref: Reference, pool_index: PoolIndex) -> CocoaResult<()> {
-        let class = self.object_table.get_class(class_ref);
-        let method = class.get_constant_pool_entry(pool_index);
-        match method {
-            PoolEntry::Method(Method::Native(native_method_index, method_index)) => {
-                let method_info = class.get_method(*method_index);
+    fn invoke_rust_native_method(&mut self, class_ref: Reference, native_method_index: NativeMethodIndex, type_info_index: PoolIndex) -> CocoaResult<()> {
+        let method = self.method_table.get_method(native_method_index);
 
-                let method_type_info = class.get_constant_pool_entry(method_info.type_info);
-                let method_type_info = match method_type_info {
-                    PoolEntry::TypeInfo(info) => info,
-                    _ => panic!("Expected type info"),
-                };
+        let type_info = self.constant_pool.get_constant(type_info_index);
+        let type_info = match type_info {
+            PoolEntry::TypeInfo(info) => info,
+            _ => panic!("Expected type info"),
+        };
 
-                let (args, _) = match method_type_info {
-                    TypeInfo::Method { args, ret } => (args, ret),
-                    _ => panic!("Expected method type info"),
-                };
+        let (args, _) = match type_info {
+            TypeInfo::Method { args, ret } => (args, ret),
+            _ => panic!("Expected method type info"),
+        };
 
-                let mut method_args = Vec::new();
+        let mut method_args = Vec::new();
 
-                for arg in args {
-                    match arg {
-                        TypeInfo::U8 => {
-                            method_args.push(ArgType::U8(StackUtils::<u8>::pop(&mut self.stack)));
-                        }
-                        TypeInfo::U16 => {
-                            method_args.push(ArgType::U16(StackUtils::<u16>::pop(&mut self.stack)));
-                        }
-                        TypeInfo::U32 => {
-                            method_args.push(ArgType::U32(StackUtils::<u32>::pop(&mut self.stack)));
-                        }
-                        TypeInfo::U64 => {
-                            method_args.push(ArgType::U64(StackUtils::<u64>::pop(&mut self.stack)));
-                        }
-                        TypeInfo::I8 => {
-                            method_args.push(ArgType::I8(StackUtils::<i8>::pop(&mut self.stack)));
-                        }
-                        TypeInfo::I16 => {
-                            method_args.push(ArgType::I16(StackUtils::<i16>::pop(&mut self.stack)));
-                        }
-                        TypeInfo::I32 => {
-                            method_args.push(ArgType::I32(StackUtils::<i32>::pop(&mut self.stack)));
-                        }
-                        TypeInfo::I64 => {
-                            method_args.push(ArgType::I64(StackUtils::<i64>::pop(&mut self.stack)));
-                        }
-                        TypeInfo::F32 => {
-                            method_args.push(ArgType::F32(StackUtils::<f32>::pop(&mut self.stack)));
-                        }
-                        TypeInfo::F64 => {
-                            method_args.push(ArgType::F64(StackUtils::<f64>::pop(&mut self.stack)));
-                        }
-                        TypeInfo::Object(_) => {
-                            method_args.push(ArgType::Reference(StackUtils::<Reference>::pop(&mut self.stack)));
-                        }
-                        _ => todo!(),
-                    }
+        for arg in args {
+            match arg {
+                TypeInfo::U8 => {
+                    method_args.push(ArgType::U8(StackUtils::<u8>::pop(&mut self.stack)));
                 }
-                
-                let native_method = self.method_table.get_method(*native_method_index);
-                match native_method {
-                    NativeMethod::Rust(method) => {
-                        let value = method(&method_args)?;
-                        match value {
-                            ArgType::U8(value) => self.stack.push(value),
-                            ArgType::U16(value) => self.stack.push(value),
-                            ArgType::U32(value) => self.stack.push(value),
-                            ArgType::U64(value) => self.stack.push(value),
-                            ArgType::I8(value) => self.stack.push(value),
-                            ArgType::I16(value) => self.stack.push(value),
-                            ArgType::I32(value) => self.stack.push(value),
-                            ArgType::I64(value) => self.stack.push(value),
-                            ArgType::F32(value) => self.stack.push(value),
-                            ArgType::F64(value) => self.stack.push(value),
-                            ArgType::Reference(value) => self.stack.push(value),
-                            ArgType::Unit => (),
-                        }
-                            
-                    },
+                TypeInfo::U16 => {
+                    method_args.push(ArgType::U16(StackUtils::<u16>::pop(&mut self.stack)));
                 }
+                TypeInfo::U32 => {
+                    method_args.push(ArgType::U32(StackUtils::<u32>::pop(&mut self.stack)));
+                }
+                TypeInfo::U64 => {
+                    method_args.push(ArgType::U64(StackUtils::<u64>::pop(&mut self.stack)));
+                }
+                TypeInfo::I8 => {
+                    method_args.push(ArgType::I8(StackUtils::<i8>::pop(&mut self.stack)));
+                }
+                TypeInfo::I16 => {
+                    method_args.push(ArgType::I16(StackUtils::<i16>::pop(&mut self.stack)));
+                }
+                TypeInfo::I32 => {
+                    method_args.push(ArgType::I32(StackUtils::<i32>::pop(&mut self.stack)));
+                }
+                TypeInfo::I64 => {
+                    method_args.push(ArgType::I64(StackUtils::<i64>::pop(&mut self.stack)));
+                }
+                TypeInfo::F32 => {
+                    method_args.push(ArgType::F32(StackUtils::<f32>::pop(&mut self.stack)));
+                }
+                TypeInfo::F64 => {
+                    method_args.push(ArgType::F64(StackUtils::<f64>::pop(&mut self.stack)));
+                }
+                TypeInfo::Object(_) => {
+                    method_args.push(ArgType::Reference(StackUtils::<Reference>::pop(&mut self.stack)));
+                }
+                _ => todo!(),
             }
-            _ => panic!("Entry is not a method"),
+        }
+
+        let native_method = self.method_table.get_method(native_method_index);
+        match native_method {
+            NativeMethod::Rust(method) => {
+                let value = method(&method_args)?;
+                match value {
+                    ArgType::U8(value) => self.stack.push(value),
+                    ArgType::U16(value) => self.stack.push(value),
+                    ArgType::U32(value) => self.stack.push(value),
+                    ArgType::U64(value) => self.stack.push(value),
+                    ArgType::I8(value) => self.stack.push(value),
+                    ArgType::I16(value) => self.stack.push(value),
+                    ArgType::I32(value) => self.stack.push(value),
+                    ArgType::I64(value) => self.stack.push(value),
+                    ArgType::F32(value) => self.stack.push(value),
+                    ArgType::F64(value) => self.stack.push(value),
+                    ArgType::Reference(value) => self.stack.push(value),
+                    ArgType::Unit => (),
+                }
+
+            },
         }
         Ok(())
     }

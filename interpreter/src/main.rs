@@ -1,5 +1,5 @@
 use definitions::{bytecode::Bytecode, class::{ClassHeader, ClassInfo, Method, MethodFlags, MethodInfo, PoolEntry}};
-use virtual_machine::{Machine, NativeMethodTable, ObjectTableSingleton};
+use virtual_machine::{ConstantPoolSingleton, Linker, Machine, NativeMethodTable, ObjectTableSingleton};
 use virtual_machine::ObjectTable;
 
 mod virtual_machine;
@@ -20,10 +20,10 @@ fn main() {
         name: 3,
         class_ref: None,
     }));
-    class.set_constant_pool_entry(2, PoolEntry::String("Main"));
-    class.set_constant_pool_entry(3, PoolEntry::String("Object"));
-    class.set_constant_pool_entry(4, PoolEntry::Method(Method::Bytecode(vec![Bytecode::InvokeStatic(5), Bytecode::Return].into(),0)));
-    class.set_constant_pool_entry(5, PoolEntry::Method(Method::Native(0, 1)));
+    class.set_constant_pool_entry(2, PoolEntry::String("Main".to_owned()));
+    class.set_constant_pool_entry(3, PoolEntry::String("Object".to_owned()));
+    class.set_constant_pool_entry(4, PoolEntry::Method(Method::Bytecode(vec![Bytecode::InvokeStatic(5), Bytecode::Return].into())));
+    class.set_constant_pool_entry(5, PoolEntry::Method(Method::Native(0)));
 
     class.set_method(0, MethodInfo {
         flags: MethodFlags::Static,
@@ -39,13 +39,19 @@ fn main() {
         location: 5,
     });
 
+    let constant_pool = ConstantPoolSingleton::new();
+
+    let mut linker = Linker::new(&constant_pool);
+
+    linker.link_classes(&mut [class]);
+
 
     let object_table = ObjectTableSingleton::get_singleton();
 
     let class_ref = object_table.add_class(class);
     let method_table = NativeMethodTable::get_table();
 
-    let mut vm = Machine::new(&object_table, &method_table);
+    let mut vm = Machine::new(&object_table, &method_table, &constant_pool);
 
     vm.run_bootstrap(class_ref, 0).unwrap();
 }

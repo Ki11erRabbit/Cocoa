@@ -17,6 +17,7 @@ pub enum Type {
 }
 
 pub type Offset = isize;
+pub type MethodIndex = usize;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Bytecode {
@@ -60,9 +61,9 @@ pub enum Bytecode {
     IfLessEqual(Offset),
     IfNull(Offset),
     IfNotNull(Offset),
-    InvokeVirtual(PoolIndex),
-    InvokeStatic(PoolIndex),
-    InvokeInterface(PoolIndex),
+    InvokeVirtual(MethodIndex),
+    InvokeStatic(MethodIndex),
+    InvokeInterface(MethodIndex),
     Return,
     // Object Related
     New(PoolIndex),

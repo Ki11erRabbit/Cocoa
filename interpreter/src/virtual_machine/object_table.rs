@@ -14,7 +14,7 @@ impl ObjectTableSingleton {
         Self {} 
     }
 
-    fn get_object_table(&self) -> &ObjectTable {
+    fn get_object_table<'a>(&'a self) -> &'a ObjectTable {
         &OBJECT_TABLE
     }
 

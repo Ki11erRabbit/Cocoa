@@ -1,11 +1,16 @@
 mod object_table;
 mod machine;
+mod constant_pool;
+mod linker;
 
 use definitions::ArgType;
 pub use object_table::ObjectTableSingleton;
 pub use machine::Machine;
 pub use machine::MethodTable;
 pub use machine::ObjectTable;
+pub use machine::ConstantPool;
+pub use linker::Linker;
+pub use constant_pool::ConstantPoolSingleton;
 
 use definitions::{CocoaResult, RustNativeMethod};
 use once_cell::sync::Lazy;

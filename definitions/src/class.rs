@@ -19,7 +19,7 @@ bitflags::bitflags! {
 
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
-pub enum PoolEntry<'a> {
+pub enum PoolEntry {
     U8(u8),
     U16(u16),
     U32(u32),
@@ -31,7 +31,7 @@ pub enum PoolEntry<'a> {
     F32(f32),
     F64(f64),
     Char(char),
-    String(&'a str),
+    String(String),
     ClassInfo(ClassInfo),
     Method(Method),
     TypeInfo(TypeInfo),
@@ -45,27 +45,9 @@ pub struct ClassInfo {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Method {
-    Native(NativeMethodIndex, usize),
-    Bytecode(Box<[Bytecode]>, usize),
-    Foreign {
-        name: PoolIndex,
-    },
-    ForeignLinked {
-        class_ref: Reference,
-        method_index: PoolIndex,
-        name: PoolIndex,
-    },
-}
-
-impl Method {
-    pub fn get_vtable_index(&self) -> usize {
-        match self {
-            Method::Native(index, _) => *index,
-            Method::Bytecode(_, index) => *index,
-            Method::Foreign { .. } => panic!("Foreign method has not yet been linked!"),
-            Method::ForeignLinked { method_index, .. } => *method_index,
-        }
-    }
+    Native(NativeMethodIndex),
+    Bytecode(Box<[Bytecode]>),
+    Foreign,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -132,38 +114,17 @@ bitflags::bitflags! {
     }
 }
 
-
-struct ClassHeaderPart1 {
+pub struct ClassHeaderBody {
     this_info: PoolIndex,
     parent_info: PoolIndex,
     class_flags: ClassFlags,
-    contant_pool_size: usize,
-}
-
-
-struct ClassHeaderPart2 {
-    interfaces_count: usize,
-}
-
-struct ClassHeaderPart3 {
-    fields_count: usize,
-}
-
-struct ClassHeaderPart4 {
-    methods_count: usize,
-}
-
-pub struct ClassHeaderBody<'a> {
-    this_info: PoolIndex,
-    parent_info: PoolIndex,
-    class_flags: ClassFlags,
-    constant_pool: Vec<PoolEntry<'a>>,
+    constant_pool: Vec<PoolEntry>,
     interfaces: Vec<PoolIndex>,
     fields: Vec<FieldInfo>,
     methods: Vec<MethodInfo>,
 }
 
-impl<'a> ClassHeaderBody<'a> {
+impl ClassHeaderBody {
     pub fn new(constant_pool_size: usize, interfaces_count: usize, fields_count: usize, methods_count: usize) -> Self {
         let mut constant_pool = Vec::with_capacity(constant_pool_size);
         constant_pool.resize_with(constant_pool_size, || PoolEntry::U8(0));
@@ -196,16 +157,16 @@ impl<'a> ClassHeaderBody<'a> {
 
 }
 
-#[derive(Copy, Clone, Eq, PartialEq)]
-pub struct ClassHeader(*mut ClassHeaderBody<'static>);
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub struct ClassHeader(*mut ClassHeaderBody);
 
 impl ClassHeader {
     pub fn new(constant_pool_size: usize, interfaces_count: usize, fields_count: usize, methods_count: usize) -> Self {
         use std::alloc::{alloc, Layout};
 
-        let layout = Layout::new::<ClassHeaderBody<'static>>();
+        let layout = Layout::new::<ClassHeaderBody>();
         unsafe {
-            let ptr = alloc(layout) as *mut ClassHeaderBody<'static>;
+            let ptr = alloc(layout) as *mut ClassHeaderBody;
             ptr.write(ClassHeaderBody::new(constant_pool_size, interfaces_count, fields_count, methods_count));
             ClassHeader(ptr)
         }
@@ -271,7 +232,7 @@ impl ClassHeader {
         }
     }
 
-    pub fn set_constant_pool_entry(&mut self, index: usize, entry: PoolEntry<'static>) {
+    pub fn set_constant_pool_entry(&mut self, index: usize, entry: PoolEntry) {
         unsafe {
             (*self.0).constant_pool[index] = entry;
         }
@@ -321,375 +282,63 @@ impl ClassHeader {
 
     pub fn deallocate(&mut self) {
         use std::alloc::{Layout, dealloc};
-        let layout = Layout::new::<ClassHeaderBody<'static>>();
-        let ptr = self.0 as *mut ClassHeaderBody<'static>;
+        let layout = Layout::new::<ClassHeaderBody>();
+        let ptr = self.0 as *mut ClassHeaderBody;
         unsafe {
             core::ptr::drop_in_place(ptr);
             dealloc(ptr as *mut u8, layout);
         }
     }
 
+    pub fn constants(&self) -> &[PoolEntry] {
+        unsafe {
+            &(*self.0).constant_pool
+        }
+    }
+
+    pub fn constants_mut(&mut self) -> &mut [PoolEntry] {
+        unsafe {
+            &mut (*self.0).constant_pool
+        }
+    }
+
+    pub fn interfaces(&self) -> &[PoolIndex] {
+        unsafe {
+            &(*self.0).interfaces
+        }
+    }
+
+    pub fn interfaces_mut(&mut self) -> &mut [PoolIndex] {
+        unsafe {
+            &mut (*self.0).interfaces
+        }
+    }
+
+    pub fn fields(&self) -> &[FieldInfo] {
+        unsafe {
+            &(*self.0).fields
+        }
+    }
+
+    pub fn fields_mut(&mut self) -> &mut [FieldInfo] {
+        unsafe {
+            &mut (*self.0).fields
+        }
+    }
+
+    pub fn methods(&self) -> &[MethodInfo] {
+        unsafe {
+            &(*self.0).methods
+        }
+    }
+
+    pub fn methods_mut(&mut self) -> &mut [MethodInfo] {
+        unsafe {
+            &mut (*self.0).methods
+        }
+    }
+
 }
-
-/*impl ClassHeader {
-    pub fn new(constant_pool_size: usize, interfaces_count: usize, fields_count: usize, methods_count: usize) -> Self {
-        use std::alloc::{alloc, Layout};
-        let layout = Layout::new::<ClassHeaderPart1>();
-        let (layout, _) = layout.extend(Layout::array::<PoolEntry>(constant_pool_size).unwrap()).unwrap();
-        let (layout, _) = layout.extend(Layout::new::<ClassHeaderPart2>()).unwrap();
-        let (layout, _) = layout.extend(Layout::array::<PoolIndex>(interfaces_count).unwrap()).unwrap();
-        let (layout, _) = layout.extend(Layout::new::<ClassHeaderPart3>()).unwrap();
-        let (layout, _) = layout.extend(Layout::array::<FieldInfo>(fields_count).unwrap()).unwrap();
-        let (layout, _) = layout.extend(Layout::new::<ClassHeaderPart4>()).unwrap();
-        let (layout, _) = layout.extend(Layout::array::<MethodInfo>(methods_count).unwrap()).unwrap();
-
-        let ptr = unsafe { alloc(layout) };
-        let og_ptr = ptr;
-        let ptr = ptr as *mut ClassHeaderPart1;
-        unsafe {
-            ptr.write(ClassHeaderPart1 {
-                this_info: 0,
-                parent_info: 0,
-                class_flags: ClassFlags::empty(),
-                contant_pool_size: constant_pool_size,
-            });
-        }
-        let ptr = unsafe { ptr.add(1) };
-        let ptr = ptr as *mut PoolEntry;
-        let ptr = unsafe { ptr.add(constant_pool_size) };
-        let ptr = ptr as *mut ClassHeaderPart2;
-        unsafe {
-            ptr.write(ClassHeaderPart2 {
-                interfaces_count,
-            });
-        }
-        let ptr = unsafe { ptr.add(1) };
-        let ptr = ptr as *mut PoolIndex;
-        let ptr = unsafe { ptr.add(interfaces_count) };
-        let ptr = ptr as *mut ClassHeaderPart3;
-        unsafe {
-            ptr.write(ClassHeaderPart3 {
-                fields_count,
-            });
-        }
-        let ptr = unsafe { ptr.add(1) };
-        let ptr = ptr as *mut FieldInfo;
-        let ptr = unsafe { ptr.add(fields_count) };
-        let ptr = ptr as *mut ClassHeaderPart4;
-        unsafe {
-            ptr.write(ClassHeaderPart4 {
-                methods_count,
-            });
-        }
-
-        ClassHeader(og_ptr as *const ())
-    }
-
-    pub fn set_this_info(&mut self, this_info: PoolIndex) {
-        let ptr = self.0 as *mut ClassHeaderPart1;
-        unsafe {
-            let old = ptr.read();
-            ptr.write(ClassHeaderPart1 {
-                this_info,
-                ..old
-            });
-        }
-    }
-
-    pub fn get_this_info(&self) -> PoolIndex {
-        let ptr = self.0 as *const ClassHeaderPart1;
-        unsafe {
-            ptr.read().this_info
-        }
-    }
-
-    pub fn set_parent_info(&mut self, parent_info: PoolIndex) {
-        let ptr = self.0 as *mut ClassHeaderPart1;
-        unsafe {
-            let old = ptr.read();
-            ptr.write(ClassHeaderPart1 {
-                parent_info,
-                ..old
-            });
-        }
-    }
-
-    pub fn get_parent_info(&self) -> PoolIndex {
-        let ptr = self.0 as *const ClassHeaderPart1;
-        unsafe {
-            ptr.read().parent_info
-        }
-    }
-
-    pub fn set_class_flags(&mut self, class_flags: ClassFlags) {
-        let ptr = self.0 as *mut ClassHeaderPart1;
-        unsafe {
-            let old = ptr.read();
-            ptr.write(ClassHeaderPart1 {
-                class_flags,
-                ..old
-            });
-        }
-    }
-
-    pub fn get_class_flags(&self) -> ClassFlags {
-        let ptr = self.0 as *const ClassHeaderPart1;
-        unsafe {
-            ptr.read().class_flags
-        }
-    }
-
-    pub fn constant_pool_len(&self) -> usize {
-        let ptr = self.0 as *const ClassHeaderPart1;
-        unsafe {
-            ptr.read().contant_pool_size
-        }
-    }
-
-    pub fn interfaces_count(&self) -> usize {
-        let ptr = self.0 as *const ClassHeaderPart1;
-        let ptr = unsafe { ptr.add(1) };
-        let ptr = ptr as *const PoolEntry;
-        let ptr = unsafe { ptr.add(self.constant_pool_len()) };
-        let ptr = ptr as *const ClassHeaderPart2;
-        unsafe {
-            ptr.read().interfaces_count
-        }
-    }
-
-    pub fn methods_count(&self) -> usize {
-        let ptr = self.0 as *const ClassHeaderPart1;
-        let ptr = unsafe { ptr.add(1) };
-        let ptr = ptr as *const PoolEntry;
-        let ptr = unsafe { ptr.add(self.constant_pool_len()) };
-        let ptr = ptr as *const ClassHeaderPart2;
-        let ptr = unsafe { ptr.add(1) };
-        let ptr = ptr as *const PoolIndex;
-        let ptr = unsafe { ptr.add(self.interfaces_count()) };
-        let ptr = ptr as *const ClassHeaderPart3;
-        let ptr = unsafe { ptr.add(1) };
-        let ptr = ptr as *const FieldInfo;
-        let ptr = unsafe { ptr.add(self.fields_count()) };
-        let ptr = ptr as *const ClassHeaderPart4;
-        unsafe {
-            ptr.read().methods_count
-        }
-    }
-
-    pub fn fields_count(&self) -> usize {
-        let ptr = self.0 as *const ClassHeaderPart1;
-        let ptr = unsafe { ptr.add(1) };
-        let ptr = ptr as *const PoolEntry;
-        let ptr = unsafe { ptr.add(self.constant_pool_len()) };
-        let ptr = ptr as *const ClassHeaderPart2;
-        let ptr = unsafe { ptr.add(1) };
-        let ptr = ptr as *const PoolIndex;
-        let ptr = unsafe { ptr.add(self.interfaces_count()) };
-        let ptr = ptr as *const ClassHeaderPart3;
-        unsafe {
-            ptr.read().fields_count
-        }
-    }
-
-    pub fn set_constant_pool_entry(&mut self, index: usize, entry: PoolEntry) {
-        let ptr = self.0 as *mut ClassHeaderPart1;
-        let ptr = unsafe { ptr.add(1) };
-        let ptr = ptr as *mut PoolEntry;
-        let ptr = unsafe { ptr.add(index) };
-        unsafe {
-            ptr.write(entry);
-        }
-    }
-
-    pub fn get_constant_pool_entry(&self, index: usize) -> &PoolEntry {
-        let ptr = self.0 as *const ClassHeaderPart1;
-        let ptr = unsafe { ptr.add(1) };
-        let ptr = ptr as *const PoolEntry;
-        let ptr = unsafe { ptr.add(index) };
-        unsafe {
-            ptr.as_ref().unwrap()
-        }
-    }
-
-    pub fn set_interface(&mut self, index: usize, interface: PoolIndex) {
-        let ptr = self.0 as *mut ClassHeaderPart1;
-        let ptr = unsafe { ptr.add(1) };
-        let ptr = ptr as *mut PoolEntry;
-        let ptr = unsafe { ptr.add(self.constant_pool_len()) };
-        let ptr = ptr as *mut ClassHeaderPart2;
-        let ptr = unsafe { ptr.add(1) };
-        let ptr = ptr as *mut PoolIndex;
-        let ptr = unsafe { ptr.add(index) };
-        unsafe {
-            ptr.write(interface);
-        }
-    }
-
-    pub fn get_interface(&self, index: usize) -> PoolIndex {
-        let ptr = self.0 as *const ClassHeaderPart1;
-        let ptr = unsafe { ptr.add(1) };
-        let ptr = ptr as *mut PoolEntry;
-        let ptr = unsafe { ptr.add(self.constant_pool_len()) };
-        let ptr = ptr as *const ClassHeaderPart2;
-        let ptr = unsafe { ptr.add(1) };
-        let ptr = ptr as *const PoolIndex;
-        let ptr = unsafe { ptr.add(index) };
-        unsafe {
-            ptr.read()
-        }
-    }
-
-    pub fn set_field(&mut self, index: usize, field: FieldInfo) {
-        let ptr = self.0 as *mut ClassHeaderPart1;
-        let ptr = unsafe { ptr.add(1) };
-        let ptr = ptr as *mut PoolEntry;
-        let ptr = unsafe { ptr.add(self.constant_pool_len()) };
-        let ptr = ptr as *mut ClassHeaderPart2;
-        let ptr = unsafe { ptr.add(1) };
-        let ptr = ptr as *mut PoolIndex;
-        let ptr = unsafe { ptr.add(self.interfaces_count()) };
-        let ptr = ptr as *mut ClassHeaderPart3;
-        let ptr = unsafe { ptr.add(1) };
-        let ptr = ptr as *mut FieldInfo;
-        let ptr = unsafe { ptr.add(index) };
-        unsafe {
-            ptr.write(field);
-        }
-    }
-
-    pub fn get_field(&self, index: usize) -> &FieldInfo {
-        let ptr = self.0 as *const ClassHeaderPart1;
-        let ptr = unsafe { ptr.add(1) };
-        let ptr = ptr as *const PoolEntry;
-        let ptr = unsafe { ptr.add(self.constant_pool_len()) };
-        let ptr = ptr as *const ClassHeaderPart2;
-        let ptr = unsafe { ptr.add(1) };
-        let ptr = ptr as *const PoolIndex;
-        let ptr = unsafe { ptr.add(self.interfaces_count()) };
-        let ptr = ptr as *const ClassHeaderPart3;
-        let ptr = unsafe { ptr.add(1) };
-        let ptr = ptr as *const FieldInfo;
-        let ptr = unsafe { ptr.add(index) };
-        unsafe {
-            ptr.as_ref().unwrap()
-        }
-    }
-
-    pub fn set_method(&mut self, index: usize, method: MethodInfo) {
-        let ptr = self.0 as *mut ClassHeaderPart1;
-        let ptr = unsafe { ptr.add(1) };
-        let ptr = ptr as *mut PoolEntry;
-        let ptr = unsafe { ptr.add(self.constant_pool_len()) };
-        let ptr = ptr as *mut ClassHeaderPart2;
-        let ptr = unsafe { ptr.add(1) };
-        let ptr = ptr as *mut PoolIndex;
-        let ptr = unsafe { ptr.add(self.interfaces_count()) };
-        let ptr = ptr as *mut ClassHeaderPart3;
-        let ptr = unsafe { ptr.add(1) };
-        let ptr = ptr as *mut FieldInfo;
-        let ptr = unsafe { ptr.add(self.fields_count()) };
-        let ptr = ptr as *mut ClassHeaderPart4;
-        let ptr = unsafe { ptr.add(1) };
-        let ptr = ptr as *mut MethodInfo;
-        let ptr = unsafe { ptr.add(index) };
-        unsafe {
-            println!("Setting method at index {}", index);
-            println!("Method: {:?}", method);
-            println!("Method at ptr: {:?}", ptr.read());
-            ptr.write(method);
-        }
-    }
-
-    pub fn get_method(&self, index: usize) -> &MethodInfo {
-        let ptr = self.0 as *const ClassHeaderPart1;
-        let ptr = unsafe { ptr.add(1) };
-        let ptr = ptr as *const PoolEntry;
-        let ptr = unsafe { ptr.add(self.constant_pool_len()) };
-        let ptr = ptr as *const ClassHeaderPart2;
-        let ptr = unsafe { ptr.add(1) };
-        let ptr = ptr as *const PoolIndex;
-        let ptr = unsafe { ptr.add(self.interfaces_count()) };
-        let ptr = ptr as *const ClassHeaderPart3;
-        let ptr = unsafe { ptr.add(1) };
-        let ptr = ptr as *const FieldInfo;
-        let ptr = unsafe { ptr.add(self.fields_count()) };
-        let ptr = ptr as *const ClassHeaderPart4;
-        let ptr = unsafe { ptr.add(1) };
-        let ptr = ptr as *const MethodInfo;
-        let ptr = unsafe { ptr.add(index) };
-        unsafe {
-            ptr.as_ref().unwrap()
-        }
-    }
-
-    pub fn deallocate(&mut self) {
-        use std::alloc::{Layout, dealloc};
-        println!("Deallocating class header");
-        let layout = Layout::new::<ClassHeaderPart1>();
-        let (layout, _) = layout.extend(Layout::array::<PoolEntry>(self.constant_pool_len()).unwrap()).unwrap();
-        let (layout, _) = layout.extend(Layout::new::<ClassHeaderPart2>()).unwrap();
-        let (layout, _) = layout.extend(Layout::array::<PoolIndex>(self.interfaces_count()).unwrap()).unwrap();
-        let (layout, _) = layout.extend(Layout::new::<ClassHeaderPart3>()).unwrap();
-        let (layout, _) = layout.extend(Layout::array::<FieldInfo>(self.fields_count()).unwrap()).unwrap();
-        let (layout, _) = layout.extend(Layout::new::<ClassHeaderPart4>()).unwrap();
-        let (layout, _) = layout.extend(Layout::array::<MethodInfo>(self.methods_count()).unwrap()).unwrap();
-
-        let ptr = self.0 as *mut u8;
-        unsafe {
-            core::ptr::drop_in_place(ptr as *mut ClassHeaderPart1);
-            let og_ptr = ptr;
-            let ptr = ptr.add(1);
-            let mut ptr = ptr as *mut PoolEntry;
-            for i in 0..self.constant_pool_len() {
-                ptr = ptr.add(i);
-                core::ptr::drop_in_place(ptr);
-            }
-            let ptr = ptr as *mut ClassHeaderPart2;
-            core::ptr::drop_in_place(ptr);
-            let ptr = ptr.add(1);
-            let mut ptr = ptr as *mut PoolIndex;
-            for i in 0..self.interfaces_count() {
-                ptr = ptr.add(i);
-                core::ptr::drop_in_place(ptr);
-            }
-            let ptr = ptr as *mut ClassHeaderPart3;
-            core::ptr::drop_in_place(ptr);
-            let ptr = ptr.add(1);
-            let mut ptr = ptr as *mut FieldInfo;
-            for i in 0..self.fields_count() {
-                ptr = ptr.add(i);
-                core::ptr::drop_in_place(ptr);
-            }
-            let ptr = ptr as *mut ClassHeaderPart4;
-            core::ptr::drop_in_place(ptr);
-            let ptr = ptr.add(1);
-            let mut ptr = ptr as *mut MethodInfo;
-            for i in 0..self.methods_count() {
-                ptr = ptr.add(i);
-                core::ptr::drop_in_place(ptr);
-            }
-            
-            dealloc(og_ptr, layout);
-        }
-    }
-
-}*/
-
-
-impl std::fmt::Debug for ClassHeader {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ClassHeader")
-            .field("this_info", &self.get_this_info())
-            .field("parent_info", &self.get_parent_info())
-            .field("class_flags", &self.get_class_flags())
-            .field("constant_pool", &self.constant_pool_len())
-            .field("interfaces", &self.interfaces_count())
-            .field("fields", &self.fields_count())
-            .field("methods", &self.methods_count())
-            .finish()
-    }
-}
-
 
 #[cfg(test)]
 mod tests {
