@@ -1,5 +1,5 @@
 
-use definitions::{bytecode::{Bytecode, MethodIndex}, class::{ClassHeader, Method, NativeMethodIndex, PoolEntry, PoolIndex, TypeInfo}, object::{Object, Reference}, stack::{Stack, StackUtils}, ArgType, CocoaResult};
+use definitions::{bytecode::{Bytecode, MethodIndex}, class::{ClassHeader, FieldFlags, Method, NativeMethodIndex, PoolEntry, PoolIndex, TypeInfo}, object::{Object, Reference}, stack::{Stack, StackUtils}, ArgType, CocoaResult};
 
 use crate::virtual_machine::NativeMethod;
 
@@ -315,6 +315,220 @@ impl Machine<'_> {
                 let object_ref = self.object_table.create_object(class_ref);
                 self.stack.push(object_ref);
             },
+            B::SetField(field_index) => {
+                let object_ref = StackUtils::<Reference>::pop(&mut self.stack);
+                let object = self.object_table.get_object(object_ref);
+                let class = self.object_table.get_class(object.get_class());
+                let field_info = class.get_field(field_index);
+                let type_info = self.constant_pool.get_constant(field_info.type_info);
+
+                match type_info {
+                    PoolEntry::TypeInfo(TypeInfo::U8) => {
+                        let value = StackUtils::<u8>::pop(&mut self.stack);
+                        object.set_field(field_index, value);
+                    },
+                    PoolEntry::TypeInfo(TypeInfo::U16) => {
+                        let value = StackUtils::<u16>::pop(&mut self.stack);
+                        object.set_field(field_index, value);
+                    },
+                    PoolEntry::TypeInfo(TypeInfo::U32) => {
+                        let value = StackUtils::<u32>::pop(&mut self.stack);
+                        object.set_field(field_index, value);
+                    },
+                    PoolEntry::TypeInfo(TypeInfo::U64) => {
+                        let value = StackUtils::<u64>::pop(&mut self.stack);
+                        object.set_field(field_index, value);
+                    },
+                    PoolEntry::TypeInfo(TypeInfo::I8) => {
+                        let value = StackUtils::<i8>::pop(&mut self.stack);
+                        object.set_field(field_index, value);
+                    },
+                    PoolEntry::TypeInfo(TypeInfo::I16) => {
+                        let value = StackUtils::<i16>::pop(&mut self.stack);
+                        object.set_field(field_index, value);
+                    },
+                    PoolEntry::TypeInfo(TypeInfo::I32) => {
+                        let value = StackUtils::<i32>::pop(&mut self.stack);
+                        object.set_field(field_index, value);
+                    },
+                    PoolEntry::TypeInfo(TypeInfo::I64) => {
+                        let value = StackUtils::<i64>::pop(&mut self.stack);
+                        object.set_field(field_index, value);
+                    },
+                    PoolEntry::TypeInfo(TypeInfo::F32) => {
+                        let value = StackUtils::<f32>::pop(&mut self.stack);
+                        object.set_field(field_index, value);
+                    },
+                    PoolEntry::TypeInfo(TypeInfo::F64) => {
+                        let value = StackUtils::<f64>::pop(&mut self.stack);
+                        object.set_field(field_index, value);
+                    },
+                    PoolEntry::TypeInfo(TypeInfo::Object(_)) => {
+                        let object_ref = StackUtils::<Reference>::pop(&mut self.stack);
+                        object.set_field(field_index, object_ref);
+                    },
+                    _ => todo!(),
+                }
+
+                StackUtils::<Reference>::push(&mut self.stack, object_ref);
+
+            },
+            B::GetField(field_index) => {
+                let object_ref = StackUtils::<Reference>::pop(&mut self.stack);
+                let object = self.object_table.get_object(object_ref);
+                let class = self.object_table.get_class(object.get_class());
+                let field_info = class.get_field(field_index);
+                let type_info = self.constant_pool.get_constant(field_info.type_info);
+
+                match type_info {
+                    PoolEntry::TypeInfo(TypeInfo::U8) => {
+                        let value = object.get_field::<u8>(field_index);
+                        StackUtils::<u8>::push(&mut self.stack, value);
+                    },
+                    PoolEntry::TypeInfo(TypeInfo::U16) => {
+                        let value = object.get_field::<u16>(field_index);
+                        StackUtils::<u16>::push(&mut self.stack, value);
+                    },
+                    PoolEntry::TypeInfo(TypeInfo::U32) => {
+                        let value = object.get_field::<u32>(field_index);
+                        StackUtils::<u32>::push(&mut self.stack, value);
+                    },
+                    PoolEntry::TypeInfo(TypeInfo::U64) => {
+                        let value = object.get_field::<u64>(field_index);
+                        StackUtils::<u64>::push(&mut self.stack, value);
+                    },
+                    PoolEntry::TypeInfo(TypeInfo::I8) => {
+                        let value = object.get_field::<i8>(field_index);
+                        StackUtils::<i8>::push(&mut self.stack, value);
+                    },
+                    PoolEntry::TypeInfo(TypeInfo::I16) => {
+                        let value = object.get_field::<i16>(field_index);
+                        StackUtils::<i16>::push(&mut self.stack, value);
+                    },
+                    PoolEntry::TypeInfo(TypeInfo::I32) => {
+                        let value = object.get_field::<i32>(field_index);
+                        StackUtils::<i32>::push(&mut self.stack, value);
+                    },
+                    PoolEntry::TypeInfo(TypeInfo::I64) => {
+                        let value = object.get_field::<i64>(field_index);
+                        StackUtils::<i64>::push(&mut self.stack, value);
+                    },
+                    PoolEntry::TypeInfo(TypeInfo::F32) => {
+                        let value = object.get_field::<f32>(field_index);
+                        StackUtils::<f32>::push(&mut self.stack, value);
+                    },
+                    PoolEntry::TypeInfo(TypeInfo::F64) => {
+                        let value = object.get_field::<f64>(field_index);
+                        StackUtils::<f64>::push(&mut self.stack, value);
+                    },
+                    PoolEntry::TypeInfo(TypeInfo::Object(_)) => {
+                        let value = object.get_field::<Reference>(field_index);
+                        StackUtils::<Reference>::push(&mut self.stack, value);
+                    },
+                    _ => todo!(),
+                }
+
+                StackUtils::<Reference>::push(&mut self.stack, object_ref);
+            }
+            B::StoreStatic(field_index) => {
+                let class_ref = self.stack.get_class_index();
+                let class = self.object_table.get_class(class_ref);
+                let field_info = class.get_field(field_index);
+                let type_info = self.constant_pool.get_constant(field_info.type_info);
+                let Some(pool_index) = field_info.location else {
+                    todo!("Error out on not having a default value");
+                };
+                if field_info.flags.contains(FieldFlags::Const) {
+                    todo!("Error out on trying to set a constant field");
+                }
+                if !field_info.flags.contains(FieldFlags::Static) {
+                    todo!("Error out on trying to set a non-static field");
+                }
+                
+
+                match type_info {
+                    PoolEntry::TypeInfo(TypeInfo::U8) => {
+                        let value = StackUtils::<u8>::pop(&mut self.stack);
+                        self.constant_pool.set_constant(pool_index, PoolEntry::U8(value));
+                    },
+                    PoolEntry::TypeInfo(TypeInfo::U16) => {
+                        let value = StackUtils::<u16>::pop(&mut self.stack);
+                        self.constant_pool.set_constant(pool_index, PoolEntry::U16(value));
+                    },
+                    PoolEntry::TypeInfo(TypeInfo::U32) => {
+                        let value = StackUtils::<u32>::pop(&mut self.stack);
+                        self.constant_pool.set_constant(pool_index, PoolEntry::U32(value));
+                    },
+                    PoolEntry::TypeInfo(TypeInfo::U64) => {
+                        let value = StackUtils::<u64>::pop(&mut self.stack);
+                        self.constant_pool.set_constant(pool_index, PoolEntry::U64(value));
+                    },
+                    PoolEntry::TypeInfo(TypeInfo::I8) => {
+                        let value = StackUtils::<i8>::pop(&mut self.stack);
+                        self.constant_pool.set_constant(pool_index, PoolEntry::I8(value));
+                    },
+                    PoolEntry::TypeInfo(TypeInfo::I16) => {
+                        let value = StackUtils::<i16>::pop(&mut self.stack);
+                        self.constant_pool.set_constant(pool_index, PoolEntry::I16(value));
+                    },
+                    PoolEntry::TypeInfo(TypeInfo::I32) => {
+                        let value = StackUtils::<i32>::pop(&mut self.stack);
+                        self.constant_pool.set_constant(pool_index, PoolEntry::I32(value));
+                    },
+                    PoolEntry::TypeInfo(TypeInfo::I64) => {
+                        let value = StackUtils::<i64>::pop(&mut self.stack);
+                        self.constant_pool.set_constant(pool_index, PoolEntry::I64(value));
+                    },
+                    PoolEntry::TypeInfo(TypeInfo::F32) => {
+                        let value = StackUtils::<f32>::pop(&mut self.stack);
+                        self.constant_pool.set_constant(pool_index, PoolEntry::F32(value));
+                    },
+                    PoolEntry::TypeInfo(TypeInfo::F64) => {
+                        let value = StackUtils::<f64>::pop(&mut self.stack);
+                        self.constant_pool.set_constant(pool_index, PoolEntry::F64(value));
+                    },
+                    PoolEntry::TypeInfo(TypeInfo::Object(_)) => {
+                        let value = StackUtils::<Reference>::pop(&mut self.stack);
+                        self.constant_pool.set_constant(pool_index, PoolEntry::Reference(value));
+                    },
+                    _ => todo!(),
+                }
+            }
+            B::LoadStatic(field_index) => {
+                let class_ref = self.stack.get_class_index();
+                let class = self.object_table.get_class(class_ref);
+                let field_info = class.get_field(field_index);
+                let type_info = self.constant_pool.get_constant(field_info.type_info);
+                let type_info = match type_info {
+                    PoolEntry::TypeInfo(info) => info,
+                    _ => panic!("Expected type info"),
+                };
+                let Some(pool_index) = field_info.location else {
+                    todo!("Error out on not having a default value");
+                };
+                if !field_info.flags.contains(FieldFlags::Static) {
+                    todo!("Error out on trying to set a non-static field");
+                }
+
+                let value = self.constant_pool.get_constant(pool_index);
+
+                match (value, type_info) {
+                    (PoolEntry::U8(value), TypeInfo::U8) => StackUtils::<u8>::push(&mut self.stack, value),
+                    (PoolEntry::U16(value), TypeInfo::U16) => StackUtils::<u16>::push(&mut self.stack, value),
+                    (PoolEntry::U32(value), TypeInfo::U32) => StackUtils::<u32>::push(&mut self.stack, value),
+                    (PoolEntry::U64(value), TypeInfo::U64) => StackUtils::<u64>::push(&mut self.stack, value),
+                    (PoolEntry::I8(value), TypeInfo::I8) => StackUtils::<i8>::push(&mut self.stack, value),
+                    (PoolEntry::I16(value), TypeInfo::I16) => StackUtils::<i16>::push(&mut self.stack, value),
+                    (PoolEntry::I32(value), TypeInfo::I32) => StackUtils::<i32>::push(&mut self.stack, value),
+                    (PoolEntry::I64(value), TypeInfo::I64) => StackUtils::<i64>::push(&mut self.stack, value),
+                    (PoolEntry::F32(value), TypeInfo::F32) => StackUtils::<f32>::push(&mut self.stack, value),
+                    (PoolEntry::F64(value), TypeInfo::F64) => StackUtils::<f64>::push(&mut self.stack, value),
+                    (PoolEntry::Reference(value), TypeInfo::Object(_)) => StackUtils::<Reference>::push(&mut self.stack, value),
+                    _ => todo!(),
+                }
+                
+                
+            }
             _ => todo!(),
 
         }

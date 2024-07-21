@@ -100,9 +100,7 @@ impl Linker<'_> {
             return Some(class);
         }
 
-        // TODO: find static members and put their default values in the constant_pool
-
-
+        self.link_fields(&mut class);
 
 
         None
@@ -306,6 +304,58 @@ impl Linker<'_> {
         }
         
         true
+    }
+
+    fn link_fields(&mut self, class: &mut ClassHeader) {
+        let mut new_fields = Vec::new();
+
+        for field in class.fields() {
+            let name = class.get_constant_pool_entry(field.name);
+            let name = match name {
+                PoolEntry::String(string) => string,
+                x => panic!("Invalid String {:?}", x),
+            };
+
+            let location = if !self.pool_mapper.contains_key(name) {
+                let location = self.constant_pool.add_constant(PoolEntry::String(name.to_owned()));
+                self.pool_mapper.insert(format!("{}", name), location);
+                location
+            } else {
+                *self.pool_mapper.get(name).unwrap()
+            };
+
+            let mut field = field.clone();
+            field.name = location;
+
+            let type_info = class.get_constant_pool_entry(field.type_info);
+            let type_info = match type_info {
+                PoolEntry::TypeInfo(info) => info,
+                x => panic!("Invalid Type Info {:?}", x),
+            };
+
+            let key = format!("FieldTypeInfo: {}", name);
+            let location = if !self.pool_mapper.contains_key(&key) {
+                let location = self.constant_pool.add_constant(PoolEntry::TypeInfo(type_info.clone()));
+                self.pool_mapper.insert(key, location);
+                location
+            } else {
+                *self.pool_mapper.get(&key).unwrap()
+            };
+
+            field.type_info = location;
+
+            if let Some(index) = field.location {
+                let location = self.constant_pool.add_constant(class.get_constant_pool_entry(index).clone());
+                field.location = Some(location);
+            }
+
+            
+            new_fields.push(field);
+        }
+
+        for (i, field) in new_fields.into_iter().enumerate() {
+            class.set_field(i, field);
+        }
     }
 }
 

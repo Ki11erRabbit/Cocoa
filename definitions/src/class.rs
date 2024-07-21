@@ -36,6 +36,7 @@ pub enum PoolEntry {
     Method(Method),
     TypeInfo(TypeInfo),
     Redirect(PoolIndex),
+    Reference(Reference),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -77,9 +78,11 @@ pub enum TypeInfo {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct FieldInfo {
-    name: PoolIndex,
-    flags: FieldFlags,
-    type_info: PoolIndex,
+    pub name: PoolIndex,
+    pub flags: FieldFlags,
+    pub type_info: PoolIndex,
+    /// The location of the field's value in the object
+    pub location: Option<PoolIndex>,
 }
 
 bitflags::bitflags! {
@@ -151,6 +154,7 @@ impl ClassHeaderBody {
             name: 0,
             flags: FieldFlags::empty(),
             type_info: 0,
+            location: None,
         });
         let mut methods = Vec::with_capacity(methods_count);
         methods.resize_with(methods_count, || MethodInfo {

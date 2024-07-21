@@ -18,6 +18,7 @@ pub enum Type {
 
 pub type Offset = isize;
 pub type MethodIndex = usize;
+pub type FieldIndex = usize;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Bytecode {
@@ -64,17 +65,17 @@ pub enum Bytecode {
     InvokeVirtual(MethodIndex),
     InvokeStatic(MethodIndex),
     /// Invoke a method on an interface
-    /// PoolIndex is the name of the interface found in the constant pool of the class
+    /// PoolIndex is the info of the interface found in the constant pool of the class
     /// MethodIndex is the index of the method in the interface info struct
     InvokeInterface(PoolIndex, MethodIndex),
     Return,
     // Object Related
     New(PoolIndex),
     GetParent,
-    SetField(PoolIndex),
-    GetField(PoolIndex),
-    StoreStatic(PoolIndex),
-    LoadStatic(PoolIndex),
+    SetField(FieldIndex),
+    GetField(FieldIndex),
+    StoreStatic(FieldIndex),
+    LoadStatic(FieldIndex),
     InstanceOf(PoolIndex),
     // Array Related
     NewArray(Type, usize),
