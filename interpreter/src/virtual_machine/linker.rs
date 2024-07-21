@@ -239,11 +239,9 @@ impl Linker<'_> {
         }
 
         for (i, method_info) in class.methods_mut().iter_mut().enumerate() {
-            println!("Method: {:?}", method_info);
             method_info.location = method_indices[i];
             method_info.name = name_indices[i];
             method_info.type_info = type_indices[i];
-            println!("Method: {:?}", method_info);
         }
         
         true

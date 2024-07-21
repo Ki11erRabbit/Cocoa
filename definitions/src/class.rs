@@ -376,8 +376,8 @@ mod tests {
     #[test]
     fn test_class_header_set_constant_pool_entry() {
         let mut header = ClassHeader::new(10, 5, 3, 4);
-        header.set_constant_pool_entry(5, PoolEntry::String("Hello"));
-        assert_eq!(*header.get_constant_pool_entry(5), PoolEntry::String("Hello"));
+        header.set_constant_pool_entry(5, PoolEntry::String("Hello".to_owned()));
+        assert_eq!(*header.get_constant_pool_entry(5), PoolEntry::String("Hello".to_owned()));
     }
 
     #[test]

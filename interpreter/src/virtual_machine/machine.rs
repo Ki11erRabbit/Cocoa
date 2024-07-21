@@ -42,7 +42,6 @@ impl<'a> Machine<'a> {
 impl Machine<'_> {
 
     fn increment_pc(&mut self) {
-        println!("Incrementing PC");
         let pc = self.stack.get_current_pc();
         self.stack.set_current_pc(pc + 1);
     }
@@ -64,7 +63,6 @@ impl Machine<'_> {
             x => panic!("Entry is not a method {:?}", x),
         };
 
-        println!("PC: {}", pc);
         
         bytecode[pc]
     }
@@ -88,7 +86,6 @@ impl Machine<'_> {
 
     fn execute_bytecode(&mut self, code: Bytecode) -> CocoaResult<()> {
         use Bytecode as B;
-        println!("Executing {:?}", code);
         match code {
             // Stack Manipulation
             B::Pop => self.stack.generic_pop(),
@@ -435,6 +432,8 @@ mod tests {
     use std::cell::RefCell;
     use crate::virtual_machine::NativeMethod;
     use definitions::{bytecode::Bytecode, class::{ClassHeader, ClassInfo, Method, MethodFlags, MethodInfo, PoolEntry, PoolIndex}, object::{Object, Reference}, ArgType};
+    use crate::ConstantPoolSingleton;
+    use crate::virtual_machine::Linker;
 
 
     fn hello_world(_: &[ArgType]) -> CocoaResult<ArgType> {
@@ -540,55 +539,6 @@ mod tests {
 
     #[test]
     fn test_hello_world() {
-        let mut class = ClassHeader::new(8, 0, 0, 2);
-
-        class.set_parent_info(1);
-        class.set_this_info(0);
-
-        class.set_constant_pool_entry(0, PoolEntry::ClassInfo(ClassInfo {
-            name: 2,
-            class_ref: None,
-        }));
-        class.set_constant_pool_entry(1, PoolEntry::ClassInfo(ClassInfo {
-            name: 3,
-            class_ref: None,
-        }));
-        class.set_constant_pool_entry(2, PoolEntry::String("Main"));
-        class.set_constant_pool_entry(3, PoolEntry::String("Object"));
-        class.set_constant_pool_entry(4, PoolEntry::Method(Method::Bytecode(vec![Bytecode::InvokeStatic(5), Bytecode::Return].into(),0)));
-        class.set_constant_pool_entry(5, PoolEntry::Method(Method::Native(0, 1)));
-        class.set_constant_pool_entry(6, PoolEntry::TypeInfo(TypeInfo::Method { args: vec![], ret: Box::new(TypeInfo::U64) }));
-        class.set_constant_pool_entry(7, PoolEntry::TypeInfo(TypeInfo::Method { args: vec![], ret: Box::new(TypeInfo::U64) }));
-
-        class.set_method(0, MethodInfo {
-            flags: MethodFlags::Static,
-            name: 0,
-            type_info: 6,
-            location: 4,
-        });
-
-        class.set_method(1, MethodInfo {
-            flags: MethodFlags::Static,
-            name: 0,
-            type_info: 7,
-            location: 5,
-        });
-
-
-        let object_table = TestObjectTable::new();
-
-        let class_ref = object_table.add_class(class);
-        let mut method_table = TestMethodTable::new();
-
-        method_table.add_method(NativeMethod::Rust(hello_world));
-
-        let mut vm = Machine::new(&object_table, &method_table);
-
-        vm.run_bootstrap(class_ref, 0).unwrap();
-    }
-
-    #[test]
-    fn test_print_i32() {
         let mut class = ClassHeader::new(9, 0, 0, 2);
 
         class.set_parent_info(1);
@@ -602,28 +552,86 @@ mod tests {
             name: 3,
             class_ref: None,
         }));
-        class.set_constant_pool_entry(2, PoolEntry::String("Main"));
-        class.set_constant_pool_entry(3, PoolEntry::String("Object"));
-        class.set_constant_pool_entry(4, PoolEntry::Method(Method::Bytecode(vec![Bytecode::LoadConstant(8), Bytecode::InvokeStatic(5), Bytecode::Return].into(),0)));
-        class.set_constant_pool_entry(5, PoolEntry::Method(Method::Native(0, 1)));
+        class.set_constant_pool_entry(2, PoolEntry::String("Main".to_owned()));
+        class.set_constant_pool_entry(3, PoolEntry::String("Object".to_owned()));
+        class.set_constant_pool_entry(4, PoolEntry::Method(Method::Bytecode(vec![Bytecode::InvokeStatic(5), Bytecode::Return].into())));
+        class.set_constant_pool_entry(5, PoolEntry::Method(Method::Native(0)));
         class.set_constant_pool_entry(6, PoolEntry::TypeInfo(TypeInfo::Method { args: vec![], ret: Box::new(TypeInfo::U64) }));
-        class.set_constant_pool_entry(7, PoolEntry::TypeInfo(TypeInfo::Method { args: vec![TypeInfo::I32], ret: Box::new(TypeInfo::U64) }));
-        class.set_constant_pool_entry(8, PoolEntry::I32(42));
+        class.set_constant_pool_entry(7, PoolEntry::TypeInfo(TypeInfo::Method { args: vec![], ret: Box::new(TypeInfo::U64) }));
+        class.set_constant_pool_entry(8, PoolEntry::String("helloWorld".to_owned()));
 
         class.set_method(0, MethodInfo {
             flags: MethodFlags::Static,
-            name: 0,
+            name: 2,
             type_info: 6,
             location: 4,
         });
 
         class.set_method(1, MethodInfo {
             flags: MethodFlags::Static,
-            name: 0,
+            name: 8,
+            type_info: 7,
+            location: 5,
+        });
+        
+        let constant_pool = ConstantPoolSingleton::new();
+        let mut linker = Linker::new(&constant_pool);
+        linker.link_classes(&mut [class]);
+
+        let object_table = TestObjectTable::new();
+
+        let class_ref = object_table.add_class(class);
+        let mut method_table = TestMethodTable::new();
+
+        method_table.add_method(NativeMethod::Rust(hello_world));
+        
+
+        let mut vm = Machine::new(&object_table, &method_table, &constant_pool);
+
+        vm.run_bootstrap(class_ref, 0).unwrap();
+    }
+
+    #[test]
+    fn test_print_i32() {
+        let mut class = ClassHeader::new(10, 0, 0, 2);
+
+        class.set_parent_info(1);
+        class.set_this_info(0);
+
+        class.set_constant_pool_entry(0, PoolEntry::ClassInfo(ClassInfo {
+            name: 2,
+            class_ref: None,
+        }));
+        class.set_constant_pool_entry(1, PoolEntry::ClassInfo(ClassInfo {
+            name: 3,
+            class_ref: None,
+        }));
+        class.set_constant_pool_entry(2, PoolEntry::String("Main".to_owned()));
+        class.set_constant_pool_entry(3, PoolEntry::String("Object".to_owned()));
+        class.set_constant_pool_entry(4, PoolEntry::Method(Method::Bytecode(vec![Bytecode::LoadConstant(8), Bytecode::InvokeStatic(5), Bytecode::Return].into())));
+        class.set_constant_pool_entry(5, PoolEntry::Method(Method::Native(0)));
+        class.set_constant_pool_entry(6, PoolEntry::TypeInfo(TypeInfo::Method { args: vec![], ret: Box::new(TypeInfo::U64) }));
+        class.set_constant_pool_entry(7, PoolEntry::TypeInfo(TypeInfo::Method { args: vec![TypeInfo::I32], ret: Box::new(TypeInfo::U64) }));
+        class.set_constant_pool_entry(8, PoolEntry::I32(42));
+        class.set_constant_pool_entry(9, PoolEntry::String("print".to_owned()));
+
+        class.set_method(0, MethodInfo {
+            flags: MethodFlags::Static,
+            name: 2,
+            type_info: 6,
+            location: 4,
+        });
+
+        class.set_method(1, MethodInfo {
+            flags: MethodFlags::Static,
+            name: 9,
             type_info: 7,
             location: 5,
         });
 
+        let constant_pool = ConstantPoolSingleton::new();
+        let mut linker = Linker::new(&constant_pool);
+        linker.link_classes(&mut [class]);
 
         let object_table = TestObjectTable::new();
 
@@ -632,14 +640,14 @@ mod tests {
 
         method_table.add_method(NativeMethod::Rust(print_i32));
 
-        let mut vm = Machine::new(&object_table, &method_table);
+        let mut vm = Machine::new(&object_table, &method_table, &constant_pool);
 
         vm.run_bootstrap(class_ref, 0).unwrap();
     }
 
     #[test]
     fn test_object_creation_and_method() {
-        let mut class = ClassHeader::new(9, 0, 0, 2);
+        let mut class = ClassHeader::new(10, 0, 0, 2);
 
         class.set_parent_info(1);
         class.set_this_info(0);
@@ -652,12 +660,13 @@ mod tests {
             name: 3,
             class_ref: None,
         }));
-        class.set_constant_pool_entry(2, PoolEntry::String("Main"));
-        class.set_constant_pool_entry(3, PoolEntry::String("Object"));
-        class.set_constant_pool_entry(4, PoolEntry::Method(Method::Bytecode(vec![Bytecode::New(0), Bytecode::InvokeVirtual(5), Bytecode::Return].into(),0)));
-        class.set_constant_pool_entry(5, PoolEntry::Method(Method::Native(0, 1)));
+        class.set_constant_pool_entry(2, PoolEntry::String("Main".to_owned()));
+        class.set_constant_pool_entry(3, PoolEntry::String("Object".to_owned()));
+        class.set_constant_pool_entry(4, PoolEntry::Method(Method::Bytecode(vec![Bytecode::New(0), Bytecode::InvokeVirtual(5), Bytecode::Return].into())));
+        class.set_constant_pool_entry(5, PoolEntry::Method(Method::Native(0)));
         class.set_constant_pool_entry(6, PoolEntry::TypeInfo(TypeInfo::Method { args: vec![], ret: Box::new(TypeInfo::U64) }));
         class.set_constant_pool_entry(7, PoolEntry::TypeInfo(TypeInfo::Method { args: vec![TypeInfo::Object(3)], ret: Box::new(TypeInfo::U64) }));
+        class.set_constant_pool_entry(8, PoolEntry::String("printRef".to_owned()));
 
         class.set_method(0, MethodInfo {
             flags: MethodFlags::Static,
@@ -668,10 +677,14 @@ mod tests {
 
         class.set_method(1, MethodInfo {
             flags: MethodFlags::Public,
-            name: 0,
+            name: 8,
             type_info: 7,
             location: 5,
         });
+
+        let constant_pool = ConstantPoolSingleton::new();
+        let mut linker = Linker::new(&constant_pool);
+        linker.link_classes(&mut [class]);
 
 
         let object_table = TestObjectTable::new();
@@ -681,7 +694,7 @@ mod tests {
 
         method_table.add_method(NativeMethod::Rust(print_object));
 
-        let mut vm = Machine::new(&object_table, &method_table);
+        let mut vm = Machine::new(&object_table, &method_table, &constant_pool);
 
         vm.run_bootstrap(class_ref, 0).unwrap();
     }

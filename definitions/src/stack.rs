@@ -29,7 +29,6 @@ impl Stack {
     }
 
     pub fn push_frame(&mut self, class_index: Reference, method_index: usize) {
-        println!("Pushing frame: {} {}", class_index, method_index);
         self.stack.push(StackFrame::new(class_index, method_index));
     }
 

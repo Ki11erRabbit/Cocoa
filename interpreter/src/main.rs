@@ -7,7 +7,7 @@ mod virtual_machine;
 
 fn main() {
 
-    let mut class = ClassHeader::new(8, 0, 0, 2);
+    let mut class = ClassHeader::new(9, 0, 0, 2);
     
     class.set_parent_info(1);
     class.set_this_info(0);
@@ -26,6 +26,7 @@ fn main() {
     class.set_constant_pool_entry(5, PoolEntry::Method(Method::Native(0)));
     class.set_constant_pool_entry(6, PoolEntry::TypeInfo(TypeInfo::Method { args: vec![], ret: Box::new(TypeInfo::U64) }));
     class.set_constant_pool_entry(7, PoolEntry::TypeInfo(TypeInfo::Method { args: vec![], ret: Box::new(TypeInfo::U64) }));
+    class.set_constant_pool_entry(8, PoolEntry::String("helloWorld".to_owned()));
 
     class.set_method(0, MethodInfo {
         flags: MethodFlags::Static,
@@ -36,7 +37,7 @@ fn main() {
 
     class.set_method(1, MethodInfo {
         flags: MethodFlags::Static,
-        name: 2,
+        name: 8,
         type_info: 7,
         location: 5,
     });
