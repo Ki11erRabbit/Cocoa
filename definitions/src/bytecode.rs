@@ -63,7 +63,10 @@ pub enum Bytecode {
     IfNotNull(Offset),
     InvokeVirtual(MethodIndex),
     InvokeStatic(MethodIndex),
-    InvokeInterface(MethodIndex),
+    /// Invoke a method on an interface
+    /// PoolIndex is the name of the interface found in the constant pool of the class
+    /// MethodIndex is the index of the method in the interface info struct
+    InvokeInterface(PoolIndex, MethodIndex),
     Return,
     // Object Related
     New(PoolIndex),

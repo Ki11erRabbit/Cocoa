@@ -35,6 +35,7 @@ pub enum PoolEntry {
     ClassInfo(ClassInfo),
     Method(Method),
     TypeInfo(TypeInfo),
+    Redirect(PoolIndex),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -114,12 +115,27 @@ bitflags::bitflags! {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct InterfaceInfo {
+    pub info: PoolIndex,
+    pub vtable: Vec<MethodIndex>,
+}
+
+impl Default for InterfaceInfo {
+    fn default() -> Self {
+        InterfaceInfo {
+            info: 0,
+            vtable: Vec::new(),
+        }
+    }
+}
+
 pub struct ClassHeaderBody {
     this_info: PoolIndex,
     parent_info: PoolIndex,
     class_flags: ClassFlags,
     constant_pool: Vec<PoolEntry>,
-    interfaces: Vec<PoolIndex>,
+    interfaces: Vec<InterfaceInfo>,
     fields: Vec<FieldInfo>,
     methods: Vec<MethodInfo>,
 }
@@ -129,7 +145,7 @@ impl ClassHeaderBody {
         let mut constant_pool = Vec::with_capacity(constant_pool_size);
         constant_pool.resize_with(constant_pool_size, || PoolEntry::U8(0));
         let mut interfaces = Vec::with_capacity(interfaces_count);
-        interfaces.resize_with(interfaces_count, || 0);
+        interfaces.resize_with(interfaces_count, || InterfaceInfo::default());
         let mut fields = Vec::with_capacity(fields_count);
         fields.resize_with(fields_count, || FieldInfo {
             name: 0,
@@ -244,15 +260,15 @@ impl ClassHeader {
         }
     }
 
-    pub fn set_interface(&mut self, index: usize, interface: PoolIndex) {
+    pub fn set_interface(&mut self, index: usize, interface: InterfaceInfo) {
         unsafe {
             (*self.0).interfaces[index] = interface;
         }
     }
 
-    pub fn get_interface(&self, index: usize) -> PoolIndex {
+    pub fn get_interface(&self, index: usize) -> &InterfaceInfo {
         unsafe {
-            (*self.0).interfaces[index]
+            &(*self.0).interfaces[index]
         }
     }
 
@@ -302,13 +318,13 @@ impl ClassHeader {
         }
     }
 
-    pub fn interfaces(&self) -> &[PoolIndex] {
+    pub fn interfaces(&self) -> &[InterfaceInfo] {
         unsafe {
             &(*self.0).interfaces
         }
     }
 
-    pub fn interfaces_mut(&mut self) -> &mut [PoolIndex] {
+    pub fn interfaces_mut(&mut self) -> &mut [InterfaceInfo] {
         unsafe {
             &mut (*self.0).interfaces
         }
@@ -380,12 +396,6 @@ mod tests {
         assert_eq!(*header.get_constant_pool_entry(5), PoolEntry::String("Hello".to_owned()));
     }
 
-    #[test]
-    fn test_class_header_set_interface() {
-        let mut header = ClassHeader::new(10, 5, 3, 4);
-        header.set_interface(4, 10);
-        assert_eq!(header.get_interface(4), 10);
-    }
 
     #[test]
     fn test_class_header_set_field() {

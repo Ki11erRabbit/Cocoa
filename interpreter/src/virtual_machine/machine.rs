@@ -264,6 +264,41 @@ impl Machine<'_> {
                 self.invoke_virtual(object_ref, method_index)?;
                 return Ok(());
             },
+            B::InvokeInterface(class_pool_entry, method_index) => {
+                let class_ref = self.stack.get_class_index();
+                let class = self.object_table.get_class(class_ref);
+                let redirect = class.get_constant_pool_entry(class_pool_entry);
+                let redirect = match redirect {
+                    PoolEntry::Redirect(pool_index) => pool_index,
+                    x => panic!("Expected redirect {:?}", x),
+                };
+                let interface_class = self.constant_pool.get_constant(*redirect);
+                let interface_class = match interface_class {
+                    PoolEntry::ClassInfo(info) => info,
+                    _ => panic!("Expected class info"),
+                };
+
+                let interface_name = interface_class.name;
+
+                for interface_info in class.interfaces() {
+                    let interface = self.constant_pool.get_constant(interface_info.info);
+                    let interface = match interface {
+                        PoolEntry::ClassInfo(info) => info,
+                        _ => panic!("Expected class info"),
+                    };
+                    if interface.name == interface_name {
+                        let object_ref = StackUtils::<Reference>::pop(&mut self.stack);
+                        StackUtils::<Reference>::push(&mut self.stack, object_ref);
+
+                        let method_index = interface_info.vtable[method_index];
+                        
+                        self.invoke_virtual(object_ref, method_index)?;
+                        return Ok(());
+                    }
+                }
+
+                todo!("error out on interface not found");
+            },
             B::Return => {
                 self.stack.return_value();
                 return Ok(());
@@ -439,7 +474,7 @@ mod tests {
     use sequential_test::sequential;
     use std::cell::RefCell;
     use crate::virtual_machine::NativeMethod;
-    use definitions::{bytecode::Bytecode, class::{ClassHeader, ClassInfo, Method, MethodFlags, MethodInfo, PoolEntry, PoolIndex}, object::{Object, Reference}, ArgType};
+    use definitions::{bytecode::Bytecode, class::{ClassHeader, ClassInfo, InterfaceInfo, Method, MethodFlags, MethodInfo, PoolEntry, PoolIndex}, object::{Object, Reference}, ArgType};
     use crate::ConstantPoolSingleton;
     use crate::virtual_machine::Linker;
 
@@ -800,4 +835,68 @@ mod tests {
 
         vm.run_bootstrap(class_ref, method_index).unwrap();
     }
+
+    #[test]
+    #[sequential]
+    fn test_interface() {
+        let mut class = ClassHeader::new(11, 1, 0, 2);
+
+        class.set_parent_info(1);
+        class.set_this_info(0);
+
+        class.set_constant_pool_entry(0, PoolEntry::ClassInfo(ClassInfo {
+            name: 2,
+            class_ref: Some(0),
+        }));
+        class.set_constant_pool_entry(1, PoolEntry::ClassInfo(ClassInfo {
+            name: 3,
+            class_ref: None,
+        }));
+        class.set_constant_pool_entry(2, PoolEntry::String("Main".to_owned()));
+        class.set_constant_pool_entry(3, PoolEntry::String("Object".to_owned()));
+        class.set_constant_pool_entry(4, PoolEntry::Method(Method::Bytecode(vec![Bytecode::New(0), Bytecode::InvokeInterface(9, 0), Bytecode::Return].into())));
+        class.set_constant_pool_entry(5, PoolEntry::Method(Method::Native(0)));
+        class.set_constant_pool_entry(6, PoolEntry::TypeInfo(TypeInfo::Method { args: vec![], ret: Box::new(TypeInfo::U64) }));
+        class.set_constant_pool_entry(7, PoolEntry::TypeInfo(TypeInfo::Method { args: vec![TypeInfo::Object(3)], ret: Box::new(TypeInfo::U64) }));
+        class.set_constant_pool_entry(8, PoolEntry::String("printRef".to_owned()));
+        class.set_constant_pool_entry(9, PoolEntry::ClassInfo(ClassInfo {
+            name: 10,
+            class_ref: None,
+        }));
+        class.set_constant_pool_entry(10, PoolEntry::String("PrintRef".to_owned()));
+
+        class.set_method(0, MethodInfo {
+            flags: MethodFlags::Static,
+            name: 2,
+            type_info: 6,
+            location: 4,
+        });
+
+        class.set_method(1, MethodInfo {
+            flags: MethodFlags::Public,
+            name: 8,
+            type_info: 7,
+            location: 5,
+        });
+
+        class.set_interface(0, InterfaceInfo {
+            info: 9,
+            vtable: vec![1],
+        });
+
+        let constant_pool = ConstantPoolSingleton::new();
+        let object_table = TestObjectTable::new();
+        let mut linker = Linker::new(&constant_pool, &object_table);
+
+        let (class_ref, method_index) = linker.link_classes(vec![class], "Main", "Main");
+
+        let mut method_table = TestMethodTable::new();
+
+        method_table.add_method(NativeMethod::Rust(print_object));
+
+        let mut vm = Machine::new(&object_table, &method_table, &constant_pool);
+
+        vm.run_bootstrap(class_ref, method_index).unwrap();
+    }
+
 }

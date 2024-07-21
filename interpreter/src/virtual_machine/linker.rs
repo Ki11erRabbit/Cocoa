@@ -13,6 +13,7 @@ pub struct Linker<'a> {
     pool_mapper: HashMap<String, PoolIndex>,
     constant_pool: &'a dyn ConstantPool,
     object_table: &'a dyn ObjectTable,
+    added_classes: HashMap<String, Reference>,
 }
 
 impl<'a> Linker<'a> {
@@ -21,6 +22,7 @@ impl<'a> Linker<'a> {
             pool_mapper: HashMap::new(),
             constant_pool,
             object_table,
+            added_classes: HashMap::new(),
         }
     }
 }
@@ -71,8 +73,15 @@ impl Linker<'_> {
         let mut skip_indicies = Vec::new();
         let (name, this_info_location) = self.link_class_info(&mut class, &mut skip_indicies);
 
-        let class_ref = self.object_table.add_class(class);
-        let mut class = self.object_table.get_class(class_ref);
+        let (class_ref, mut class) = if !self.added_classes.contains_key(&name) {
+            let class_ref = self.object_table.add_class(class);
+            let class = self.object_table.get_class(class_ref);
+            (class_ref, class)
+        } else {
+            let class_ref = *self.added_classes.get(&name).unwrap();
+            let class = self.object_table.get_class(class_ref);
+            (class_ref, class)
+        };
 
 
         
@@ -170,12 +179,14 @@ impl Linker<'_> {
         (name.clone(), this_info_location)
     }
 
-    fn link_interfaces(&mut self, class: &ClassHeader, skip_indices: &mut Vec<PoolIndex>) {
+    fn link_interfaces(&mut self, class: &mut ClassHeader, skip_indices: &mut Vec<PoolIndex>) {
+        let mut interface_info_locations = Vec::new();
+        let mut interface_locations = Vec::new();
         for interface in class.interfaces() {
-            skip_indices.push(*interface);
+            skip_indices.push(interface.info);
 
-            let interface = class.get_constant_pool_entry(*interface);
-            let class_info = match interface {
+            let interface_info = class.get_constant_pool_entry(interface.info);
+            let class_info = match interface_info {
                 PoolEntry::ClassInfo(info) => info,
                 _ => panic!("Invalid class info"),
             };
@@ -195,13 +206,29 @@ impl Linker<'_> {
             };
 
             let mut class_info = class_info.clone();
+            let old_location = interface.info;
             class_info.name = location;
 
             let class_info_key = format!("ClassInfo: {}", interface_name);
-            if !self.pool_mapper.contains_key(&class_info_key) {
+            let location = if !self.pool_mapper.contains_key(&class_info_key) {
                 let location = self.constant_pool.add_constant(PoolEntry::ClassInfo(class_info));
                 self.pool_mapper.insert(class_info_key, location);
-            }
+                location
+            } else {
+                *self.pool_mapper.get(&class_info_key).unwrap()
+            };
+
+            interface_locations.push((old_location, location));
+
+            interface_info_locations.push(location);
+        }
+        for (old_location, location) in interface_locations {
+            let redirect = PoolEntry::Redirect(location);
+            class.set_constant_pool_entry(old_location, redirect);
+        }
+        
+        for (i, interface) in class.interfaces_mut().iter_mut().enumerate() {
+            interface.info = interface_info_locations[i];
         }
     }
 
