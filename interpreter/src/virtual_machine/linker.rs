@@ -181,7 +181,7 @@ impl Linker<'_> {
             let method_name = class.get_constant_pool_entry(method_name);
             let method_name = match method_name {
                 PoolEntry::String(string) => string,
-                _ => panic!("Invalid String"),
+                x => panic!("Invalid String {:?}", x),
             };
 
             let location = if !self.pool_mapper.contains_key(method_name) {
@@ -239,9 +239,11 @@ impl Linker<'_> {
         }
 
         for (i, method_info) in class.methods_mut().iter_mut().enumerate() {
+            println!("Method: {:?}", method_info);
             method_info.location = method_indices[i];
             method_info.name = name_indices[i];
             method_info.type_info = type_indices[i];
+            println!("Method: {:?}", method_info);
         }
         
         true

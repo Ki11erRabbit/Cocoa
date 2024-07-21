@@ -42,6 +42,7 @@ impl<'a> Machine<'a> {
 impl Machine<'_> {
 
     fn increment_pc(&mut self) {
+        println!("Incrementing PC");
         let pc = self.stack.get_current_pc();
         self.stack.set_current_pc(pc + 1);
     }
@@ -62,6 +63,8 @@ impl Machine<'_> {
             PoolEntry::Method(Method::Bytecode(bytecode)) => bytecode,
             x => panic!("Entry is not a method {:?}", x),
         };
+
+        println!("PC: {}", pc);
         
         bytecode[pc]
     }
@@ -85,6 +88,7 @@ impl Machine<'_> {
 
     fn execute_bytecode(&mut self, code: Bytecode) -> CocoaResult<()> {
         use Bytecode as B;
+        println!("Executing {:?}", code);
         match code {
             // Stack Manipulation
             B::Pop => self.stack.generic_pop(),
@@ -245,13 +249,13 @@ impl Machine<'_> {
                 let class = self.object_table.get_class(class_ref);
                 let method_info = class.get_method(method_index);
                 let method = self.constant_pool.get_constant(method_info.location);
+                self.increment_pc();
                 match method {
                     PoolEntry::Method(Method::Native(native_method_index)) => {
                         self.invoke_rust_native_method(class_ref, native_method_index, method_info.type_info)?;
                     },
                     PoolEntry::Method(Method::Bytecode(_)) => {
-                        self.increment_pc();
-                        self.invoke_bytecode_method(class_ref, method_info.location)?
+                        self.invoke_bytecode_method(class_ref, method_index)?
                     }
                     _ => panic!("Entry is not a method"),
                 }
@@ -300,7 +304,7 @@ impl Machine<'_> {
             }
             PoolEntry::Method(Method::Bytecode(_)) => {
                 self.increment_pc();
-                self.invoke_bytecode_method(object.get_class(), method_info.location)?;
+                self.invoke_bytecode_method(object.get_class(), method_index)?;
                 return Ok(());
             },
             _ => panic!("Entry is not a method"),
@@ -308,7 +312,7 @@ impl Machine<'_> {
         Ok(())
     }
 
-    fn invoke_bytecode_method(&mut self, class_ref: Reference, method_index: PoolIndex) -> CocoaResult<()> {
+    fn invoke_bytecode_method(&mut self, class_ref: Reference, method_index: MethodIndex) -> CocoaResult<()> {
         let class = self.object_table.get_class(class_ref);
         let method_info = class.get_method(method_index);
 
@@ -347,8 +351,6 @@ impl Machine<'_> {
     }
 
     fn invoke_rust_native_method(&mut self, class_ref: Reference, native_method_index: NativeMethodIndex, type_info_index: PoolIndex) -> CocoaResult<()> {
-        let method = self.method_table.get_method(native_method_index);
-
         let type_info = self.constant_pool.get_constant(type_info_index);
         let type_info = match type_info {
             PoolEntry::TypeInfo(info) => info,
