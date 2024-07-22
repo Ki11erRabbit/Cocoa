@@ -81,6 +81,13 @@ impl Stack {
         self.stack.last_mut().expect("Stack Underflow").push_return_value(bytes, ty);
     }
 
+    pub fn return_unit(&mut self) {
+        self.stack.pop();
+        if self.stack.is_empty() {
+            return;
+        }
+    }
+
     pub fn add(&mut self) -> CocoaResult<()> {
         self.stack.last_mut().expect("Stack Underflow").add()
     }

@@ -22,7 +22,7 @@ pub enum ArgType {
 }
     
 
-pub type RustNativeMethod = fn(&[ArgType]) -> CocoaResult<ArgType>;
+//pub type RustNativeMethod = fn(&[ArgType]) -> CocoaResult<ArgType>;
 
 pub type CocoaResult<T> = Result<T, ErrorInfo>;
 

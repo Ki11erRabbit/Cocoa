@@ -1,5 +1,5 @@
 use once_cell::sync::Lazy;
-use definitions::{bytecode::Type, class::{ClassHeader, ClassInfo, PoolEntry}, object::{Array, Object, ObjectHeader, ObjectTable, Reference, StringObject}, RustNativeMethod};
+use definitions::{bytecode::Type, class::{ClassHeader, ClassInfo, PoolEntry}, object::{Array, Object, ObjectTable, Reference, StringObject}};
 
 use super::machine;
 

@@ -1,5 +1,5 @@
 
-use definitions::{bytecode::{Bytecode, MethodIndex, Type}, class::{ClassHeader, FieldFlags, Method, NativeMethodIndex, PoolEntry, PoolIndex, TypeInfo}, object::{Array, Object, Reference, StringObject}, stack::{Stack, StackUtils}, ArgType, CocoaResult};
+use definitions::{bytecode::{Bytecode, MethodIndex, Type}, class::{ClassHeader, ClassInfo, FieldFlags, Method, MethodFlags, NativeMethodIndex, PoolEntry, PoolIndex, TypeInfo}, object::{Array, Object, Reference, StringObject}, stack::{Stack, StackUtils}, ArgType, CocoaResult};
 
 use crate::virtual_machine::NativeMethod;
 
@@ -113,7 +113,6 @@ impl Machine<'_> {
                     PoolEntry::I64(value) => self.stack.push(*value),
                     PoolEntry::F32(value) => self.stack.push(*value),
                     PoolEntry::F64(value) => self.stack.push(*value),
-                    PoolEntry::String(_) => todo!("Create string object"),
                     _ => todo!(),
                 }
             },
@@ -249,68 +248,50 @@ impl Machine<'_> {
                     return Ok(());
                 }
             },
-            B::InvokeStatic(method_index) => {
-                let class_ref = self.stack.get_class_index();
-                let class = self.object_table.get_class(class_ref);
-                let method_info = class.get_method(method_index);
-                let method = self.constant_pool.get_constant(method_info.location);
-                self.increment_pc();
-                match method {
-                    PoolEntry::Method(Method::Native(native_method_index)) => {
-                        self.invoke_rust_native_method(class_ref, native_method_index, method_info.type_info)?;
-                    },
-                    PoolEntry::Method(Method::Bytecode(_)) => {
-                        self.invoke_bytecode_method(class_ref, method_index)?
-                    }
-                    _ => panic!("Entry is not a method"),
-                }
+            B::InvokeStatic(pool_index, method_index) => {
+                self.invoke_static(pool_index, method_index,false)?;
+                return Ok(())
+            },
+            B::InvokeStaticTail(pool_index, method_index) => {
+                self.invoke_static(pool_index, method_index,true)?;
                 return Ok(())
             },
             B::InvokeVirtual(method_index) => {
                 let object_ref = StackUtils::<Reference>::pop(&mut self.stack);
                 StackUtils::<Reference>::push(&mut self.stack, object_ref);
-                self.invoke_virtual(object_ref, method_index)?;
+                self.invoke_virtual(object_ref, method_index, false)?;
+                return Ok(());
+            },
+            B::InvokeVirtualTail(method_index) => {
+                let object_ref = StackUtils::<Reference>::pop(&mut self.stack);
+                StackUtils::<Reference>::push(&mut self.stack, object_ref);
+                self.invoke_virtual(object_ref, method_index, true)?;
                 return Ok(());
             },
             B::InvokeInterface(class_pool_entry, method_index) => {
-                let class_ref = self.stack.get_class_index();
-                let class = self.object_table.get_class(class_ref);
-                let redirect = class.get_constant_pool_entry(class_pool_entry);
-                let redirect = match redirect {
-                    PoolEntry::Redirect(pool_index) => pool_index,
-                    x => panic!("Expected redirect {:?}", x),
-                };
-                let interface_class = self.constant_pool.get_constant(*redirect);
-                let interface_class = match interface_class {
-                    PoolEntry::ClassInfo(info) => info,
-                    _ => panic!("Expected class info"),
-                };
-
-                let interface_name = interface_class.name;
-
-                for interface_info in class.interfaces() {
-                    let interface = self.constant_pool.get_constant(interface_info.info);
-                    let interface = match interface {
-                        PoolEntry::ClassInfo(info) => info,
-                        _ => panic!("Expected class info"),
-                    };
-                    if interface.name == interface_name {
-                        let object_ref = StackUtils::<Reference>::pop(&mut self.stack);
-                        StackUtils::<Reference>::push(&mut self.stack, object_ref);
-
-                        let method_index = interface_info.vtable[method_index];
-                        
-                        self.invoke_virtual(object_ref, method_index)?;
-                        return Ok(());
-                    }
-                }
-
-                todo!("error out on interface not found");
+                self.invoke_interface_method(class_pool_entry, method_index, false)?;
+                return Ok(())
+            },
+            B::InvokeInterfaceTail(class_pool_entry, method_index) => {
+                self.invoke_interface_method(class_pool_entry, method_index, true)?;
+                return Ok(())
+            },
+            B::InvokeInterfaceStatic(class_pool_entry,interface_pool_entry, method_index) => {
+                self.invoke_interface_static_method(class_pool_entry, interface_pool_entry, method_index, false)?;
+                return Ok(())
+            },
+            B::InvokeInterfaceStaticTail(class_pool_entry,interface_pool_entry, method_index) => {
+                self.invoke_interface_static_method(class_pool_entry, interface_pool_entry, method_index, true)?;
+                return Ok(())
             },
             B::Return => {
                 self.stack.return_value();
                 return Ok(());
-            },
+            }
+            B::ReturnUnit => {
+                self.stack.return_unit();
+                return Ok(());
+            }
             // Object Related
             B::New(pool_index) => {
                 let class_ref = self.stack.get_class_index();
@@ -322,7 +303,7 @@ impl Machine<'_> {
                 };
                 let object_ref = self.object_table.create_object(class_ref);
                 self.stack.push(object_ref);
-            },
+            }
             B::SetField(field_index) => {
                 let object_ref = StackUtils::<Reference>::pop(&mut self.stack);
                 let object = self.object_table.get_object(object_ref);
@@ -382,7 +363,6 @@ impl Machine<'_> {
 
             },
             B::GetField(field_index) => {
-                //TODO: program array members
                 let object_ref = StackUtils::<Reference>::pop(&mut self.stack);
                 let object = self.object_table.get_object(object_ref);
                 let class = self.object_table.get_class(object.get_class());
@@ -541,6 +521,13 @@ impl Machine<'_> {
                 StackUtils::<Reference>::push(&mut self.stack, object_ref);
                 self.instance_of(object_ref, pool_index);
             }
+            B::GetParent => {
+                let object_ref = StackUtils::<Reference>::pop(&mut self.stack);
+                StackUtils::<Reference>::push(&mut self.stack, object_ref);
+                let object = self.object_table.get_object(object_ref);
+                let parent_ref = object.get_parent();
+                StackUtils::<Reference>::push(&mut self.stack, parent_ref);
+            }
             // Array Related
             B::NewArray(ty) => {
                 let length = StackUtils::<u64>::pop(&mut self.stack) as usize;
@@ -551,7 +538,11 @@ impl Machine<'_> {
                 let index = StackUtils::<u64>::pop(&mut self.stack) as usize;
                 let reference = StackUtils::<Reference>::pop(&mut self.stack);
                 StackUtils::<Reference>::push(&mut self.stack, reference);
-                // TODO: check if array
+
+                if !self.object_table.is_array(reference) {
+                    todo!("Not an Array");
+                }
+                
                 let array = self.object_table.get_array(reference);
                 match ty {
                     Type::U8 => {
@@ -604,7 +595,11 @@ impl Machine<'_> {
             B::ArraySet(ty) => {
                 let index = StackUtils::<u64>::pop(&mut self.stack) as usize;
                 let reference = StackUtils::<Reference>::pop(&mut self.stack);
-                // TODO: check if array
+
+                if !self.object_table.is_array(reference) {
+                    todo!("Not an Array");
+                }
+
                 let mut array = self.object_table.get_array(reference);
                 match ty {
                     Type::U8 => {
@@ -701,7 +696,63 @@ impl Machine<'_> {
         }
     }
 
-    fn invoke_virtual(&mut self, object_ref: Reference, method_index: MethodIndex) -> CocoaResult<()> {
+    fn check_method_permissions(&mut self, flags: MethodFlags, current_class: Reference, current_object_class: Reference) -> CocoaResult<()> {
+        if flags.contains(MethodFlags::Public) {
+            return Ok(());
+        } else if current_class != current_object_class && flags.contains(MethodFlags::Private) {
+            todo!("Accessing Private Method Error");
+        } else if current_class == 0 || current_object_class == 0 {
+            todo!("Tried accessing a protected method from the wrong context");
+        } else if flags.contains(MethodFlags::Protected) {
+            // The case where we are in the same class;
+            if current_class == current_object_class {
+                return Ok(());
+            }
+            let current_class = self.object_table.get_class(current_class);
+            let info = self.constant_pool.get_constant(current_class.get_this_info());
+            let current_class = match info {
+                PoolEntry::ClassInfo(ClassInfo { class_ref: Some(class_ref), .. }) => class_ref,
+                PoolEntry::ClassInfo(ClassInfo { class_ref: None, .. }) => 0,
+                _ => panic!("Expected class info"),
+            };
+            let current_object_class = self.object_table.get_class(current_object_class);
+            let info = self.constant_pool.get_constant(current_object_class.get_this_info());
+            let current_object_class = match info {
+                PoolEntry::ClassInfo(ClassInfo { class_ref: Some(class_ref), .. }) => class_ref,
+                PoolEntry::ClassInfo(ClassInfo { class_ref: None, .. }) => 0,
+                _ => panic!("Expected class info"),
+            };
+            return self.check_method_permissions(flags, current_class, current_object_class);
+        }
+        Ok(())
+    }
+
+    fn invoke_static(&mut self, pool_index: PoolIndex, method_index: MethodIndex, tail: bool) -> CocoaResult<()> {
+        let class_ref = self.stack.get_class_index();
+        let class = self.object_table.get_class(class_ref);
+        let class_info = class.get_constant_pool_entry(pool_index);
+        let class_ref = match class_info {
+            PoolEntry::ClassInfo(ClassInfo { class_ref: Some(class_ref), .. }) => *class_ref,
+            x => panic!("Invalid class info {:?}", x),
+        };
+        let class = self.object_table.get_class(class_ref);
+        let method_info = class.get_method(method_index);
+        self.check_method_permissions(method_info.flags, self.stack.get_class_index(), class_ref)?;
+        let method = self.constant_pool.get_constant(method_info.location);
+        self.increment_pc();
+        match method {
+            PoolEntry::Method(Method::Native(native_method_index)) => {
+                self.invoke_rust_native_method(class_ref, native_method_index, method_info.type_info)?;
+            },
+            PoolEntry::Method(Method::Bytecode(_)) => {
+                self.invoke_bytecode_method(class_ref, method_index, tail)?
+            }
+            _ => panic!("Entry is not a method"),
+        }
+        return Ok(())
+    }
+
+    fn invoke_virtual(&mut self, object_ref: Reference, method_index: MethodIndex, tail: bool) -> CocoaResult<()> {
         if object_ref == 0 {
             panic!("Attempted to invoke method on null object");
         }
@@ -709,6 +760,8 @@ impl Machine<'_> {
         let class = self.object_table.get_class(object.get_class());
 
         let method_info = class.get_method(method_index);
+
+        self.check_method_permissions(method_info.flags, self.stack.get_class_index(), object.get_class())?;
 
         let method = self.constant_pool.get_constant(method_info.location);
         match method {
@@ -718,19 +771,99 @@ impl Machine<'_> {
             }
             PoolEntry::Method(Method::Bytecode(_)) => {
                 self.increment_pc();
-                self.invoke_bytecode_method(object.get_class(), method_index)?;
+                self.invoke_bytecode_method(object.get_class(), method_index, tail)?;
                 return Ok(());
             },
             PoolEntry::Method(Method::Foreign(method_index)) => {
                 let parent_ref = object.get_parent();
-                self.invoke_virtual(parent_ref, method_index)?;
+                self.invoke_virtual(parent_ref, method_index, tail)?;
             }
             _ => panic!("Entry is not a method"),
         }
         Ok(())
     }
 
-    fn invoke_bytecode_method(&mut self, class_ref: Reference, method_index: MethodIndex) -> CocoaResult<()> {
+    fn invoke_interface_method(&mut self, class_pool_entry: PoolIndex, method_index: MethodIndex, tail: bool) -> CocoaResult<()> {
+        let class_ref = self.stack.get_class_index();
+        let class = self.object_table.get_class(class_ref);
+        let redirect = class.get_constant_pool_entry(class_pool_entry);
+        let redirect = match redirect {
+            PoolEntry::Redirect(pool_index) => pool_index,
+            x => panic!("Expected redirect {:?}", x),
+        };
+        let interface_class = self.constant_pool.get_constant(*redirect);
+        let interface_class = match interface_class {
+            PoolEntry::ClassInfo(info) => info,
+            _ => panic!("Expected class info"),
+        };
+
+        let interface_name = interface_class.name;
+
+        for interface_info in class.interfaces() {
+            let interface = self.constant_pool.get_constant(interface_info.info);
+            let interface = match interface {
+                PoolEntry::ClassInfo(info) => info,
+                _ => panic!("Expected class info"),
+            };
+            if interface.name == interface_name {
+                let object_ref = StackUtils::<Reference>::pop(&mut self.stack);
+                StackUtils::<Reference>::push(&mut self.stack, object_ref);
+
+                let method_index = interface_info.vtable[method_index];
+
+                self.invoke_virtual(object_ref, method_index, tail)?;
+                return Ok(());
+            }
+        }
+
+        todo!("error out on interface not found");
+
+    }
+
+    fn invoke_interface_static_method(&mut self, class_info_index: PoolIndex, class_pool_entry: PoolIndex, method_index: MethodIndex, tail: bool) -> CocoaResult<()> {
+
+        let class_ref = self.stack.get_class_index();
+        let class = self.object_table.get_class(class_ref);
+        let class_info = class.get_constant_pool_entry(class_info_index);
+        let class_ref = match class_info {
+            PoolEntry::ClassInfo(ClassInfo { class_ref: Some(class_ref), .. }) => *class_ref,
+            x => panic!("Invalid class info {:?}", x),
+        };
+        let class = self.object_table.get_class(class_ref);
+
+        let redirect = class.get_constant_pool_entry(class_pool_entry);
+        let redirect = match redirect {
+            PoolEntry::Redirect(pool_index) => pool_index,
+            x => panic!("Expected redirect {:?}", x),
+        };
+        let interface_class = self.constant_pool.get_constant(*redirect);
+        let interface_class = match interface_class {
+            PoolEntry::ClassInfo(info) => info,
+            _ => panic!("Expected class info"),
+        };
+
+        let interface_name = interface_class.name;
+
+        for interface_info in class.interfaces() {
+            let interface = self.constant_pool.get_constant(interface_info.info);
+            let interface = match interface {
+                PoolEntry::ClassInfo(info) => info,
+                _ => panic!("Expected class info"),
+            };
+            if interface.name == interface_name {
+
+                let method_index = interface_info.vtable[method_index];
+
+                self.invoke_static(class_info_index, method_index, tail)?;
+                return Ok(());
+            }
+        }
+
+        todo!("error out on interface not found");
+
+    }
+
+    fn invoke_bytecode_method(&mut self, class_ref: Reference, method_index: MethodIndex, tail: bool) -> CocoaResult<()> {
         let class = self.object_table.get_class(class_ref);
         let method_info = class.get_method(method_index);
 
@@ -745,24 +878,28 @@ impl Machine<'_> {
             _ => panic!("Expected method type info"),
         };
 
-        self.stack.push_frame(class_ref, method_index);
-        let mut arg_index = 0;
-        for arg in args {
-            match arg {
-                TypeInfo::U8 => StackUtils::<u8>::set_argument(&mut self.stack, arg_index),
-                TypeInfo::U16 => StackUtils::<u16>::set_argument(&mut self.stack, arg_index),
-                TypeInfo::U32 => StackUtils::<u32>::set_argument(&mut self.stack, arg_index),
-                TypeInfo::U64 => StackUtils::<u64>::set_argument(&mut self.stack, arg_index),
-                TypeInfo::I8 => StackUtils::<i8>::set_argument(&mut self.stack, arg_index),
-                TypeInfo::I16 => StackUtils::<i16>::set_argument(&mut self.stack, arg_index),
-                TypeInfo::I32 => StackUtils::<i32>::set_argument(&mut self.stack, arg_index),
-                TypeInfo::I64 => StackUtils::<i64>::set_argument(&mut self.stack, arg_index),
-                TypeInfo::F32 => StackUtils::<f32>::set_argument(&mut self.stack, arg_index),
-                TypeInfo::F64 => StackUtils::<f64>::set_argument(&mut self.stack, arg_index),
-                TypeInfo::Object(_) => StackUtils::<Reference>::set_argument(&mut self.stack, arg_index),
-                _ => todo!(),
+        if !tail {
+            self.stack.push_frame(class_ref, method_index);
+            let mut arg_index = 0;
+            for arg in args {
+                match arg {
+                    TypeInfo::U8 => StackUtils::<u8>::set_argument(&mut self.stack, arg_index),
+                    TypeInfo::U16 => StackUtils::<u16>::set_argument(&mut self.stack, arg_index),
+                    TypeInfo::U32 => StackUtils::<u32>::set_argument(&mut self.stack, arg_index),
+                    TypeInfo::U64 => StackUtils::<u64>::set_argument(&mut self.stack, arg_index),
+                    TypeInfo::I8 => StackUtils::<i8>::set_argument(&mut self.stack, arg_index),
+                    TypeInfo::I16 => StackUtils::<i16>::set_argument(&mut self.stack, arg_index),
+                    TypeInfo::I32 => StackUtils::<i32>::set_argument(&mut self.stack, arg_index),
+                    TypeInfo::I64 => StackUtils::<i64>::set_argument(&mut self.stack, arg_index),
+                    TypeInfo::F32 => StackUtils::<f32>::set_argument(&mut self.stack, arg_index),
+                    TypeInfo::F64 => StackUtils::<f64>::set_argument(&mut self.stack, arg_index),
+                    TypeInfo::Object(_) => StackUtils::<Reference>::set_argument(&mut self.stack, arg_index),
+                    _ => todo!(),
+                }
+                arg_index += 1;
             }
-            arg_index += 1;
+        } else {
+            todo!("Add tail version of set_argument");
         }
         
         Ok(())
@@ -824,7 +961,7 @@ impl Machine<'_> {
         let native_method = self.method_table.get_method(native_method_index);
         match native_method {
             NativeMethod::Rust(method) => {
-                let value = method(&method_args)?;
+                let value = method(&method_args, self.object_table, self.method_table, self.constant_pool)?;
                 match value {
                     ArgType::U8(value) => self.stack.push(value),
                     ArgType::U16(value) => self.stack.push(value),

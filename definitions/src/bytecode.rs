@@ -141,17 +141,43 @@ pub enum Bytecode {
     /// Invoke a method on the current object
     /// This will call a parent method if the method is not found in the current class
     InvokeVirtual(MethodIndex),
+    /// Invoke a method on the current object
+    /// This will call a parent method if the method is not found in the current class
+    /// This is a tail call and will not cause the stack to grow
+    /// This is for logging and debugging purposes
+    InvokeVirtualTail(MethodIndex),
     /// Invoke a static method
-    /// This will call a method in the current class
-    /// TODO: This should be able to call a method from another class
-    InvokeStatic(MethodIndex),
+    /// This will call a method in the class referenced by the PoolIndex
+    InvokeStatic(PoolIndex, MethodIndex),
+    /// Invoke a static method
+    /// This will call a method in the class referenced by the PoolIndex
+    /// This is a tail call and will not cause the stack to grow
+    InvokeStaticTail(PoolIndex, MethodIndex),
     /// Invoke a method on an interface
     /// PoolIndex is the info of the interface found in the constant pool of the class
     /// MethodIndex is the index of the method in the interface info struct
     InvokeInterface(PoolIndex, MethodIndex),
+    /// Invoke a method on an interface
+    /// PoolIndex is the info of the interface found in the constant pool of the class
+    /// MethodIndex is the index of the method in the interface info struct
+    /// This is a tail call and will not cause the stack to grow
+    InvokeInterfaceTail(PoolIndex, MethodIndex),
+    /// Invoke a static method from an interface
+    /// First PoolIndex is the class info of the class that implements the interface
+    /// Second PoolIndex is the info of the interface found in the constant pool of the class
+    /// MethodIndex is the index of the method in the interface info struct
+    InvokeInterfaceStatic(PoolIndex, PoolIndex, MethodIndex),
+    /// Invoke a static method from an interface
+    /// First PoolIndex is the class info of the class that implements the interface
+    /// Second PoolIndex is the info of the interface found in the constant pool of the class
+    /// MethodIndex is the index of the method in the interface info struct
+    /// This is a tail call and will not cause the stack to grow
+    InvokeInterfaceStaticTail(PoolIndex, PoolIndex, MethodIndex),
     /// Return from the current method
     /// This pops the top value off the stack and returns it onto the stack of the calling method
     Return,
+    /// Returns Nothing
+    ReturnUnit,
     // Object Related
     /// Create a new object
     /// The PoolIndex is the class info of the object to be created
@@ -171,6 +197,10 @@ pub enum Bytecode {
     /// Check if the top value on the stack is an instance of the class
     /// The PoolIndex is the class info of the class to check against
     InstanceOf(PoolIndex),
+    /// Get the parent of the current object
+    /// The parent's reference is pushed onto the stack
+    /// This returns null if the object has no parent
+    GetParent,
     // Array Related
     /// Create a new array with a specified type
     NewArray(Type),

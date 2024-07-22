@@ -1,0 +1,5 @@
+package cocoa.lang;
+
+pub class Array {
+    pub fn size() u64 @ 2;
+}

@@ -12,9 +12,15 @@ pub use machine::ConstantPool;
 pub use linker::Linker;
 pub use constant_pool::ConstantPoolSingleton;
 
-use definitions::{CocoaResult, RustNativeMethod};
+use definitions::CocoaResult;
 use once_cell::sync::Lazy;
 
+pub type RustNativeMethod = fn(
+    &[ArgType],
+    object_table: &dyn ObjectTable,
+    method_table: &dyn MethodTable,
+    constant_pool: &dyn ConstantPool
+) -> CocoaResult<ArgType>;
 
 #[derive(Clone, Copy)]
 enum NativeMethod {
@@ -23,7 +29,7 @@ enum NativeMethod {
 
 static NATIVE_METHOD_TABLE: Lazy<Vec<NativeMethod>> = Lazy::new(|| {
     vec![
-        NativeMethod::Rust(print_object),
+        NativeMethod::Rust(array_size),
 ]});
 
 pub struct NativeMethodTable {}
@@ -32,7 +38,6 @@ impl NativeMethodTable {
     pub fn get_table() -> Self {
         Self {}
     }
-
 }
 
 impl MethodTable for NativeMethodTable {
@@ -41,16 +46,19 @@ impl MethodTable for NativeMethodTable {
     }
 }
 
-
-fn hello_world(_: &[ArgType]) -> CocoaResult<ArgType> {
-    println!("Hello, world!");
-    Ok(ArgType::U64(0))
-}
-
-fn print_object(args: &[ArgType]) -> CocoaResult<ArgType> {
-    match &args[0] {
-        ArgType::Reference(value) => println!("{:?}", value),
-        _ => panic!("Expected reference"),
+fn array_size(
+    args: &[ArgType],
+    object_table: &dyn ObjectTable,
+    _: &dyn MethodTable,
+    _: &dyn ConstantPool
+) -> CocoaResult<ArgType> {
+    if let ArgType::Reference(reference) = args[0] {
+        if !object_table.is_array(reference) {
+            todo!("Handle non-array reference")
+        }
+        let object = object_table.get_array(reference);
+        Ok(ArgType::U64(object.get_size() as u64))
+    } else {
+        todo!("Handle non-reference argument")
     }
-    Ok(ArgType::U64(0))
 }
