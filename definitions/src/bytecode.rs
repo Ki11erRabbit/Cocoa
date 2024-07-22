@@ -79,8 +79,8 @@ pub enum Bytecode {
     InstanceOf(PoolIndex),
     // Array Related
     NewArray(Type, usize),
-    ArrayGet(Type, usize),
-    ArraySet(Type, usize),
+    ArrayGet(Type),
+    ArraySet(Type),
     // String Related
     NewString(StringIndex),
     // Misc

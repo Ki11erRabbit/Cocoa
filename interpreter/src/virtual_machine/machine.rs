@@ -546,7 +546,8 @@ impl Machine<'_> {
                 let reference = self.object_table.create_array(ty, length);
                 StackUtils::<Reference>::push(&mut self.stack, reference);
             }
-            B::ArrayGet(ty, index) => {
+            B::ArrayGet(ty) => {
+                let index = StackUtils::<u64>::pop(&mut self.stack) as usize;
                 let reference = StackUtils::<Reference>::pop(&mut self.stack);
                 StackUtils::<Reference>::push(&mut self.stack, reference);
                 // TODO: check if array
@@ -599,7 +600,8 @@ impl Machine<'_> {
                     _ => panic!("invalid size "),
                 }
             }
-            B::ArraySet(ty, index) => {
+            B::ArraySet(ty) => {
+                let index = StackUtils::<u64>::pop(&mut self.stack) as usize;
                 let reference = StackUtils::<Reference>::pop(&mut self.stack);
                 // TODO: check if array
                 let mut array = self.object_table.get_array(reference);
