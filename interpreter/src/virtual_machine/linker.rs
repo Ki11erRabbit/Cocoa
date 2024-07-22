@@ -110,6 +110,7 @@ impl Linker<'_> {
         }
 
         self.link_fields(&mut class);
+        self.link_strings(&mut class);
 
 
         None
@@ -376,6 +377,32 @@ impl Linker<'_> {
 
         for (i, field) in new_fields.into_iter().enumerate() {
             class.set_field(i, field);
+        }
+    }
+
+    fn link_strings(&mut self, class: &mut ClassHeader) {
+        let mut new_strings = Vec::new();
+
+        for string in class.strings() {
+            let string = class.get_constant_pool_entry(*string);
+            let string = match string {
+                PoolEntry::String(string) => string,
+                x => panic!("Invalid String {:?}", x),
+            };
+            
+            let location = if !self.pool_mapper.contains_key(string) {
+                let location = self.constant_pool.add_constant(PoolEntry::String(string.to_owned()));
+                self.pool_mapper.insert(format!("{}", string), location);
+                location
+            } else {
+                *self.pool_mapper.get(string).unwrap()
+            };
+
+            new_strings.push(location);
+        }
+
+        for (i, location) in new_strings.into_iter().enumerate() {
+            class.set_string(i, location);
         }
     }
 }

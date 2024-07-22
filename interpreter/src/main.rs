@@ -6,7 +6,7 @@ mod virtual_machine;
 
 fn main() {
 
-        let mut class = ClassHeader::new(10, 0, 0, 2);
+        let mut class = ClassHeader::new(10, 0, 0, 2, 0);
 
         class.set_parent_info(1);
         class.set_this_info(0);
@@ -43,7 +43,7 @@ fn main() {
         
         let parent_class = class;
         
-        let mut class = ClassHeader::new(10, 0, 0, 2);
+        let mut class = ClassHeader::new(10, 0, 0, 2, 0);
 
         class.set_parent_info(1);
         class.set_this_info(0);

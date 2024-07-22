@@ -141,10 +141,11 @@ pub struct ClassHeaderBody {
     interfaces: Vec<InterfaceInfo>,
     fields: Vec<FieldInfo>,
     methods: Vec<MethodInfo>,
+    strings: Vec<PoolIndex>,
 }
 
 impl ClassHeaderBody {
-    pub fn new(constant_pool_size: usize, interfaces_count: usize, fields_count: usize, methods_count: usize) -> Self {
+    pub fn new(constant_pool_size: usize, interfaces_count: usize, fields_count: usize, methods_count: usize, string_count: usize) -> Self {
         let mut constant_pool = Vec::with_capacity(constant_pool_size);
         constant_pool.resize_with(constant_pool_size, || PoolEntry::U8(0));
         let mut interfaces = Vec::with_capacity(interfaces_count);
@@ -163,6 +164,9 @@ impl ClassHeaderBody {
             type_info: 0,
             location: 0,
         });
+
+        let mut strings = Vec::with_capacity(string_count);
+        strings.resize_with(string_count, || 0);
         
         ClassHeaderBody {
             this_info: 0,
@@ -172,6 +176,7 @@ impl ClassHeaderBody {
             interfaces,
             fields,
             methods,
+            strings,
         }
     }
 
@@ -181,13 +186,13 @@ impl ClassHeaderBody {
 pub struct ClassHeader(*mut ClassHeaderBody);
 
 impl ClassHeader {
-    pub fn new(constant_pool_size: usize, interfaces_count: usize, fields_count: usize, methods_count: usize) -> Self {
+    pub fn new(constant_pool_size: usize, interfaces_count: usize, fields_count: usize, methods_count: usize, strings: usize) -> Self {
         use std::alloc::{alloc, Layout};
 
         let layout = Layout::new::<ClassHeaderBody>();
         unsafe {
             let ptr = alloc(layout) as *mut ClassHeaderBody;
-            ptr.write(ClassHeaderBody::new(constant_pool_size, interfaces_count, fields_count, methods_count));
+            ptr.write(ClassHeaderBody::new(constant_pool_size, interfaces_count, fields_count, methods_count, strings));
             ClassHeader(ptr)
         }
     }
@@ -358,6 +363,30 @@ impl ClassHeader {
         }
     }
 
+    pub fn strings(&self) -> &[PoolIndex] {
+        unsafe {
+            &(*self.0).strings
+        }
+    }
+
+    pub fn strings_mut(&mut self) -> &mut [PoolIndex] {
+        unsafe {
+            &mut (*self.0).strings
+        }
+    }
+
+    pub fn get_string(&self, index: usize) -> PoolIndex {
+        unsafe {
+            (*self.0).strings[index]
+        }
+    }
+
+    pub fn set_string(&mut self, index: usize, string: PoolIndex) {
+        unsafe {
+            (*self.0).strings[index] = string;
+        }
+    }
+
 }
 
 #[cfg(test)]
@@ -368,34 +397,34 @@ mod tests {
 
     #[test]
     fn test_class_header_creation() {
-        let _ = ClassHeader::new(10, 5, 3, 4);
+        let _ = ClassHeader::new(10, 5, 3, 4, 0);
 
     }
 
     #[test]
     fn test_class_header_set_this_info() {
-        let mut header = ClassHeader::new(10, 5, 3, 4);
+        let mut header = ClassHeader::new(10, 5, 3, 4, 0);
         header.set_this_info(5);
         assert_eq!(header.get_this_info(), 5);
     }
 
     #[test]
     fn test_class_header_set_parent_info() {
-        let mut header = ClassHeader::new(10, 5, 3, 4);
+        let mut header = ClassHeader::new(10, 5, 3, 4, 0);
         header.set_parent_info(5);
         assert_eq!(header.get_parent_info(), 5);
     }
 
     #[test]
     fn test_class_header_set_class_flags() {
-        let mut header = ClassHeader::new(10, 5, 3, 4);
+        let mut header = ClassHeader::new(10, 5, 3, 4, 0);
         header.set_class_flags(ClassFlags::Public);
         assert_eq!(header.get_class_flags(), ClassFlags::Public);
     }
 
     #[test]
     fn test_class_header_set_constant_pool_entry() {
-        let mut header = ClassHeader::new(10, 5, 3, 4);
+        let mut header = ClassHeader::new(10, 5, 3, 4, 0);
         header.set_constant_pool_entry(5, PoolEntry::String("Hello".to_owned()));
         assert_eq!(*header.get_constant_pool_entry(5), PoolEntry::String("Hello".to_owned()));
     }
@@ -403,7 +432,7 @@ mod tests {
 
     #[test]
     fn test_class_header_set_field() {
-        let mut header = ClassHeader::new(10, 5, 3, 4);
+        let mut header = ClassHeader::new(10, 5, 3, 4, 0);
         header.set_field(2, FieldInfo {
             name: 10,
             flags: FieldFlags::Public,
@@ -420,7 +449,7 @@ mod tests {
 
     #[test]
     fn test_class_header_set_method() {
-        let mut header = ClassHeader::new(10, 5, 3, 4);
+        let mut header = ClassHeader::new(10, 5, 3, 4, 0);
         header.set_method(3, MethodInfo {
             name: 10,
             flags: MethodFlags::Public,

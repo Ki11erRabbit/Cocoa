@@ -1,5 +1,5 @@
 
-use definitions::{bytecode::{Bytecode, MethodIndex}, class::{ClassHeader, FieldFlags, Method, NativeMethodIndex, PoolEntry, PoolIndex, TypeInfo}, object::{Object, Reference}, stack::{Stack, StackUtils}, ArgType, CocoaResult};
+use definitions::{bytecode::{Bytecode, MethodIndex, Type}, class::{ClassHeader, FieldFlags, Method, NativeMethodIndex, PoolEntry, PoolIndex, TypeInfo}, object::{Array, Object, Reference, StringObject}, stack::{Stack, StackUtils}, ArgType, CocoaResult};
 
 use crate::virtual_machine::NativeMethod;
 
@@ -9,6 +9,14 @@ pub trait ObjectTable {
     fn add_class(&self, class: ClassHeader) -> Reference;
     fn get_object(&self, object_ref: Reference) -> Object;
     fn get_class(&self, class_ref: Reference) -> ClassHeader;
+    fn create_array(&self, ty: Type, length: usize) -> Reference;
+    fn get_array(&self, reference: Reference) -> Array;
+    fn create_string(&self, string: String) -> Reference;
+    fn get_string(&self, reference: Reference) -> StringObject;
+    fn is_object(&self, reference: Reference) -> bool;
+    fn is_array(&self, reference: Reference) -> bool;
+    fn is_class(&self, reference: Reference) -> bool;
+    fn is_string(&self, reference: Reference) -> bool;
 }
 
 pub trait MethodTable {
@@ -374,6 +382,7 @@ impl Machine<'_> {
 
             },
             B::GetField(field_index) => {
+                //TODO: program array members
                 let object_ref = StackUtils::<Reference>::pop(&mut self.stack);
                 let object = self.object_table.get_object(object_ref);
                 let class = self.object_table.get_class(object.get_class());
@@ -532,8 +541,137 @@ impl Machine<'_> {
                 StackUtils::<Reference>::push(&mut self.stack, object_ref);
                 self.instance_of(object_ref, pool_index);
             }
-            _ => todo!(),
+            // Array Related
+            B::NewArray(ty, length) => {
+                let reference = self.object_table.create_array(ty, length);
+                StackUtils::<Reference>::push(&mut self.stack, reference);
+            }
+            B::ArrayGet(ty, index) => {
+                let reference = StackUtils::<Reference>::pop(&mut self.stack);
+                StackUtils::<Reference>::push(&mut self.stack, reference);
+                // TODO: check if array
+                let array = self.object_table.get_array(reference);
+                match ty {
+                    Type::U8 => {
+                        let value = array.get_elem::<u8>(index);
+                        self.stack.push(value);
+                    }
+                    Type::I8 => {
+                        let value = array.get_elem::<i8>(index);
+                        self.stack.push(value);
+                    }
+                    Type::U16 => {
+                        let value = array.get_elem::<u16>(index);
+                        self.stack.push(value);
+                    }
+                    Type::I16 => {
+                        let value = array.get_elem::<i16>(index);
+                        self.stack.push(value);
+                    }
+                    Type::U32 => {
+                        let value = array.get_elem::<u32>(index);
+                        self.stack.push(value);
+                    }
+                    Type::I32 => {
+                        let value = array.get_elem::<i32>(index);
+                        self.stack.push(value);
+                    }
+                    Type::U64 => {
+                        let value = array.get_elem::<u64>(index);
+                        self.stack.push(value);
+                    }
+                    Type::I64 => {
+                        let value = array.get_elem::<i64>(index);
+                        self.stack.push(value);
+                    }
+                    Type::F32 => {
+                        let value = array.get_elem::<f32>(index);
+                        self.stack.push(value);
+                    }
+                    Type::F64 => {
+                        let value = array.get_elem::<f64>(index);
+                        self.stack.push(value);
+                    }
+                    Type::Reference => {
+                        let value = array.get_elem::<Reference>(index);
+                        self.stack.push(value);
+                    }
+                    _ => panic!("invalid size "),
+                }
+            }
+            B::ArraySet(ty, index) => {
+                let reference = StackUtils::<Reference>::pop(&mut self.stack);
+                // TODO: check if array
+                let mut array = self.object_table.get_array(reference);
+                match ty {
+                    Type::U8 => {
+                        let value = self.stack.pop();
+                        array.set_elem::<u8>(index, value);
+                    }
+                    Type::I8 => {
+                        let value = self.stack.pop();
+                        array.set_elem::<i8>(index, value);
+                    }
+                    Type::U16 => {
+                        let value = self.stack.pop();
+                        array.set_elem::<u16>(index, value);
+                    }
+                    Type::I16 => {
+                        let value = self.stack.pop();
+                        array.set_elem::<i16>(index, value);
+                    }
+                    Type::U32 => {
+                        let value = self.stack.pop();
+                        array.set_elem::<u32>(index, value);
+                    }
+                    Type::I32 => {
+                        let value = self.stack.pop();
+                        array.set_elem::<i32>(index, value);
+                    }
+                    Type::U64 => {
+                        let value = self.stack.pop();
+                        array.set_elem::<u64>(index, value);
+                    }
+                    Type::I64 => {
+                        let value = self.stack.pop();
+                        array.set_elem::<i64>(index, value);
+                    }
+                    Type::F32 => {
+                        let value = self.stack.pop();
+                        array.set_elem::<f32>(index, value);
+                    }
+                    Type::F64 => {
+                        let value = self.stack.pop();
+                        array.set_elem::<f64>(index, value);
+                    }
+                    Type::Reference => {
+                        let value = self.stack.pop();
+                        array.set_elem::<Reference>(index, value);
+                    }
+                    _ => panic!("invalid size "),
+                }
+                StackUtils::<Reference>::push(&mut self.stack, reference);
+            }
+            // String Related
+            B::NewString(string_index) => {
+                let class_ref = self.stack.get_class_index();
+                let class = self.object_table.get_class(class_ref);
+                let pool_index = class.get_string(string_index);
+                let string = self.constant_pool.get_constant(pool_index);
+                let string = match string {
+                    PoolEntry::String(string) => string,
+                    _ => panic!("Was not a string"),
+                };
 
+                let string_ref = self.object_table.create_string(string);
+                self.stack.push(string_ref);
+            }
+            // Misc
+            B::Breakpoint => {
+                todo!("breakpoint")
+            }
+            B::Nop => {}
+            
         }
         self.increment_pc();
         Ok(())
@@ -799,6 +937,9 @@ mod tests {
         fn get_class(&self, class_ref: Reference) -> ClassHeader {
             self.classes.borrow()[class_ref as usize].clone()
         }
+
+        fn create_array(&self, ty: Type, length: usize) -> Reference {
+        }
     }
 
     struct TestMethodTable {
@@ -825,7 +966,7 @@ mod tests {
     #[test]
     #[sequential]
     fn test_hello_world() {
-        let mut class = ClassHeader::new(9, 0, 0, 2);
+        let mut class = ClassHeader::new(9, 0, 0, 2, 0);
 
         class.set_parent_info(1);
         class.set_this_info(0);
@@ -879,7 +1020,7 @@ mod tests {
     #[test]
     #[sequential]
     fn test_print_i32() {
-        let mut class = ClassHeader::new(10, 0, 0, 2);
+        let mut class = ClassHeader::new(10, 0, 0, 2, 0);
 
         class.set_parent_info(1);
         class.set_this_info(0);
@@ -933,7 +1074,7 @@ mod tests {
     #[test]
     #[sequential]
     fn test_object_creation_and_method() {
-        let mut class = ClassHeader::new(10, 0, 0, 2);
+        let mut class = ClassHeader::new(10, 0, 0, 2, 0);
 
         class.set_parent_info(1);
         class.set_this_info(0);
@@ -986,7 +1127,7 @@ mod tests {
     #[test]
     #[sequential]
     fn test_object_inheritance() {
-        let mut class = ClassHeader::new(10, 0, 0, 2);
+        let mut class = ClassHeader::new(10, 0, 0, 2, 0);
 
         class.set_parent_info(1);
         class.set_this_info(0);
@@ -1023,7 +1164,7 @@ mod tests {
         
         let parent_class = class;
         
-        let mut class = ClassHeader::new(10, 0, 0, 2);
+        let mut class = ClassHeader::new(10, 0, 0, 2, 0);
 
         class.set_parent_info(1);
         class.set_this_info(0);
@@ -1076,7 +1217,7 @@ mod tests {
     #[test]
     #[sequential]
     fn test_interface() {
-        let mut class = ClassHeader::new(11, 1, 0, 2);
+        let mut class = ClassHeader::new(11, 1, 0, 2, 0);
 
         class.set_parent_info(1);
         class.set_this_info(0);
@@ -1139,7 +1280,7 @@ mod tests {
     #[test]
     #[sequential]
     fn test_object_instance_of() {
-        let mut class = ClassHeader::new(10, 0, 0, 2);
+        let mut class = ClassHeader::new(10, 0, 0, 2, 0);
 
         class.set_parent_info(1);
         class.set_this_info(0);
@@ -1176,7 +1317,7 @@ mod tests {
         
         let parent_class = class;
         
-        let mut class = ClassHeader::new(10, 0, 0, 2);
+        let mut class = ClassHeader::new(10, 0, 0, 2, 0);
 
         class.set_parent_info(1);
         class.set_this_info(0);
@@ -1229,7 +1370,7 @@ mod tests {
     #[test]
     #[sequential]
     fn test_object_instance_of_inheritance() {
-        let mut class = ClassHeader::new(10, 0, 0, 2);
+        let mut class = ClassHeader::new(10, 0, 0, 2, 0);
 
         class.set_parent_info(1);
         class.set_this_info(0);
@@ -1266,7 +1407,7 @@ mod tests {
         
         let parent_class = class;
         
-        let mut class = ClassHeader::new(10, 0, 0, 2);
+        let mut class = ClassHeader::new(10, 0, 0, 2, 0);
 
         class.set_parent_info(1);
         class.set_this_info(0);

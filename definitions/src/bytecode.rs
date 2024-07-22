@@ -19,6 +19,7 @@ pub enum Type {
 pub type Offset = isize;
 pub type MethodIndex = usize;
 pub type FieldIndex = usize;
+pub type StringIndex = usize;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Bytecode {
@@ -71,7 +72,6 @@ pub enum Bytecode {
     Return,
     // Object Related
     New(PoolIndex),
-    GetParent,
     SetField(FieldIndex),
     GetField(FieldIndex),
     StoreStatic(FieldIndex),
@@ -81,6 +81,8 @@ pub enum Bytecode {
     NewArray(Type, usize),
     ArrayGet(Type, usize),
     ArraySet(Type, usize),
+    // String Related
+    NewString(StringIndex),
     // Misc
     Breakpoint,
     Nop,

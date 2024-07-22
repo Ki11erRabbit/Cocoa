@@ -1,5 +1,5 @@
 use once_cell::sync::Lazy;
-use definitions::{class::{ClassHeader, ClassInfo, PoolEntry}, object::{Object, ObjectTable, Reference}, RustNativeMethod};
+use definitions::{bytecode::Type, class::{ClassHeader, ClassInfo, PoolEntry}, object::{Array, Object, ObjectHeader, ObjectTable, Reference, StringObject}, RustNativeMethod};
 
 use super::machine;
 
@@ -65,4 +65,51 @@ impl machine::ObjectTable for ObjectTableSingleton {
             .get_class_ptr()
     }
 
+    /// TODO: Add array class and create base object
+    fn create_array(&self, ty: Type, length: usize) -> Reference {
+        let size = match ty {
+            Type::U8 | Type::I8 => 1,
+            Type::U16 | Type::I16 => 2,
+            Type::U32 | Type::I32 | Type::F32 => 4,
+            Type::U64 | Type::I64 | Type::F64 => 8,
+            Type::Reference => 8,
+            _ => panic!("Invalid type for array"),
+        };
+        
+        let array = Array::new(0, 0, size, length);
+
+        self.get_object_table().add_array(array)
+    }
+
+    fn get_array(&self, reference: Reference) -> Array {
+        self.get_object_table()
+            .get_object(reference)
+            .expect("Invalid Reference")
+            .get_array_ptr()
+    }
+
+    // TODO create base object and add string class
+    fn create_string(&self, string: String) -> Reference {
+        let string = StringObject::new(0, 0,string);
+
+        self.get_object_table().add_string(string)
+    }
+    fn get_string(&self, reference: Reference) -> StringObject {
+        self.get_object_table()
+            .get_object(reference)
+            .expect("Invalid Reference")
+            .get_string_ptr()
+    }
+    fn is_object(&self, reference: Reference) -> bool {
+        self.get_object_table().is_object(reference)
+    }
+    fn is_array(&self, reference: Reference) -> bool {
+        self.get_object_table().is_array(reference)
+    }
+    fn is_class(&self, reference: Reference) -> bool {
+        self.get_object_table().is_class(reference)
+    }
+    fn is_string(&self, reference: Reference) -> bool {
+        self.get_object_table().is_string(reference)
+    }
 }

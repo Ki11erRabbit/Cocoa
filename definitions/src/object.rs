@@ -240,6 +240,55 @@ impl Clone for Array {
     }
 }
 
+pub struct StringBody {
+    parent: Reference,
+    class_ref: Reference,
+    value: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct StringObject(*mut StringBody);
+
+impl StringObject {
+    pub fn new(parent: Reference, class_ref: Reference, value: String) -> Self {
+        let layout = std::alloc::Layout::new::<StringBody>();
+        let object = unsafe {std::alloc::alloc(layout)};
+        let object = object as *mut StringBody;
+        unsafe {
+            std::ptr::write(object, StringBody {
+                parent,
+                class_ref,
+                value,
+            });
+        }
+        StringObject(object)
+    }
+
+    pub fn get_parent(&self) -> Reference {
+        let body = unsafe {self.0.as_ref().unwrap()};
+        body.parent
+    }
+
+    pub fn get_class(&self) -> Reference {
+        let body = unsafe {self.0.as_ref().unwrap()};
+        body.class_ref
+    }
+
+    pub fn get_value(&self) -> &str {
+        let body = unsafe {self.0.as_ref().unwrap()};
+        &body.value
+    }
+
+    pub fn deallocate(&mut self) {
+        println!("Dropping String");
+        let layout = std::alloc::Layout::new::<StringBody>();
+        unsafe {
+            //std::ptr::drop_in_place(self);
+            std::alloc::dealloc(self.0 as *mut u8, layout);
+        }
+    }
+}
+
 pub type Reference = usize;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -254,6 +303,7 @@ pub enum HeaderPtr {
     Object(Object),
     Array(Array),
     Class(ClassHeader),
+    String(StringObject),
 }
 
 
@@ -284,6 +334,13 @@ impl ObjectHeader {
             ptr: HeaderPtr::Class(ptr),
         }
     }
+
+    pub fn new_string(ptr: StringObject) -> Self {
+        Self {
+            mark: GcMark::White,
+            ptr: HeaderPtr::String(ptr),
+        }
+    }
     
     pub fn get_object_ptr(&self) -> Object {
         match &self.ptr {
@@ -306,6 +363,13 @@ impl ObjectHeader {
         }
     }
 
+    pub fn get_string_ptr(&self) -> StringObject {
+        match &self.ptr {
+            HeaderPtr::String(ptr) => ptr.clone(),
+            _ => panic!("Invalid object type"),
+        }
+    }
+
     pub fn get_mark(&self) -> GcMark {
         self.mark
     }
@@ -319,6 +383,35 @@ impl ObjectHeader {
             HeaderPtr::Array(mut array) => array.deallocate(),
             HeaderPtr::Class(mut class) => class.deallocate(),
             HeaderPtr::Object(mut obj) => obj.deallocate(),
+            HeaderPtr::String(mut string) => string.deallocate(),
+        }
+    }
+
+    pub fn is_object(&self) -> bool {
+        match self.ptr {
+            HeaderPtr::Object(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_array(&self) -> bool {
+        match self.ptr {
+            HeaderPtr::Array(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_class(&self) -> bool {
+        match self.ptr {
+            HeaderPtr::Class(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_string(&self) -> bool {
+        match self.ptr {
+            HeaderPtr::String(_) => true,
+            _ => false,
         }
     }
 }
@@ -357,6 +450,13 @@ impl ObjectTable {
         ptr
     }
 
+    pub fn add_string(&self, string: StringObject) -> Reference {
+        let mut objects = self.objects.write().unwrap();
+        let ptr = objects.len();
+        objects.push(Some(ObjectHeader::new_string(string)));
+        ptr
+    }
+
     pub fn get_object(&self, reference: Reference) -> Option<ObjectHeader> {
         self.objects.read().unwrap().get(reference).cloned().flatten()
     }
@@ -375,6 +475,22 @@ impl ObjectTable {
 
     pub fn get_table_mut(&self) -> RwLockWriteGuard<Vec<Option<ObjectHeader>>> {
         self.objects.write().unwrap()
+    }
+
+    pub fn is_object(&self, reference: Reference) -> bool {
+        self.get_object(reference).map(|obj| obj.is_object()).unwrap_or(false)
+    }
+
+    pub fn is_array(&self, reference: Reference) -> bool {
+        self.get_object(reference).map(|obj| obj.is_array()).unwrap_or(false)
+    }
+
+    pub fn is_class(&self, reference: Reference) -> bool {
+        self.get_object(reference).map(|obj| obj.is_class()).unwrap_or(false)
+    }
+
+    pub fn is_string(&self, reference: Reference) -> bool {
+        self.get_object(reference).map(|obj| obj.is_string()).unwrap_or(false)
     }
 }
 
