@@ -407,12 +407,14 @@ mod tests {
         header.set_field(2, FieldInfo {
             name: 10,
             flags: FieldFlags::Public,
-            type_info: 2
+            type_info: 2,
+            location: None
         });
         assert_eq!(*header.get_field(2), FieldInfo {
             name: 10,
             flags: FieldFlags::Public,
-            type_info: 2
+            type_info: 2,
+            location: None
         });
     }
 

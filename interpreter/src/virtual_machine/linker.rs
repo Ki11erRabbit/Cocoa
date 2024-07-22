@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use definitions::{bytecode::MethodIndex, class::{ClassHeader, PoolEntry, PoolIndex}, object::Reference};
+use definitions::{bytecode::MethodIndex, class::{ClassHeader, ClassInfo, PoolEntry, PoolIndex}, object::Reference};
 
 use super::{ConstantPool, ObjectTable};
 
@@ -71,15 +71,24 @@ impl Linker<'_> {
 
     fn link_class(&mut self, mut class: ClassHeader) -> Option<ClassHeader> {
         let mut skip_indicies = Vec::new();
-        let (name, this_info_location) = self.link_class_info(&mut class, &mut skip_indicies);
+        let (name, name_location, this_info_location) = self.link_class_info(&mut class, &mut skip_indicies);
 
         let (class_ref, mut class) = if !self.added_classes.contains_key(&name) {
             let class_ref = self.object_table.add_class(class);
-            let class = self.object_table.get_class(class_ref);
+            let mut class = self.object_table.get_class(class_ref);
+            self.added_classes.insert(name.clone(), class_ref);
+            class.set_constant_pool_entry(class.get_this_info(), PoolEntry::ClassInfo(ClassInfo {
+                name: name_location,
+                class_ref: Some(class_ref),
+            }));
             (class_ref, class)
         } else {
             let class_ref = *self.added_classes.get(&name).unwrap();
-            let class = self.object_table.get_class(class_ref);
+            let mut class = self.object_table.get_class(class_ref);
+            class.set_constant_pool_entry(class.get_this_info(), PoolEntry::ClassInfo(ClassInfo {
+                name: name_location,
+                class_ref: Some(class_ref),
+            }));
             (class_ref, class)
         };
 
@@ -106,7 +115,7 @@ impl Linker<'_> {
         None
     }
 
-    fn link_class_info(&mut self, class: &mut ClassHeader, skip_indices: &mut Vec<PoolIndex>) -> (String, usize) {
+    fn link_class_info(&mut self, class: &mut ClassHeader, skip_indices: &mut Vec<PoolIndex>) -> (String, PoolIndex, PoolIndex) {
         let index = class.get_this_info();
         let entry = class.get_constant_pool_entry(index);
         let class_info = match entry {
@@ -129,8 +138,14 @@ impl Linker<'_> {
             *self.pool_mapper.get(name).unwrap()
         };
 
+        let name = name.clone();
+        let name_location = location;
+
         let mut class_info = class_info.clone();
         class_info.name = location;
+        class_info.class_ref = self.added_classes.get(&name).cloned();
+
+        class.set_constant_pool_entry(index, PoolEntry::ClassInfo(class_info));
 
         let key = format!("ClassInfo: {}", name);
         let location = if !self.pool_mapper.contains_key(&key) {
@@ -167,14 +182,20 @@ impl Linker<'_> {
 
         let mut class_info = class_info.clone();
         class_info.name = location;
+        class_info.class_ref = self.added_classes.get(&parent_name).cloned();
 
         let class_info_key = format!("ClassInfo: {}", parent_name);
-        if !self.pool_mapper.contains_key(&class_info_key) {
+        let _location = if !self.pool_mapper.contains_key(&class_info_key) {
             let location = self.constant_pool.add_constant(PoolEntry::ClassInfo(class_info));
             self.pool_mapper.insert(class_info_key, location);
-        }
+            location
+        } else {
+            *self.pool_mapper.get(&class_info_key).unwrap()
+        };
 
-        (name.clone(), this_info_location)
+        class.set_constant_pool_entry(index, PoolEntry::ClassInfo(class_info));
+
+        (name, name_location, this_info_location)
     }
 
     fn link_interfaces(&mut self, class: &mut ClassHeader, skip_indices: &mut Vec<PoolIndex>) {
