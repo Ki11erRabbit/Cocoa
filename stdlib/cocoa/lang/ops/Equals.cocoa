@@ -2,5 +2,5 @@ package cocoa.lang.ops;
 
 
 pub interface Equals<T> {
-    equals(x: T, y: T) boolean;
+    fn equals(x: T, y: T) boolean;
 }

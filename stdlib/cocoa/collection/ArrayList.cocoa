@@ -1,0 +1,53 @@
+package cocoa.collection;
+
+pub class ArrayList<T> implements List<T> {
+    array: [T];
+    size: u64;
+    fn resize() {
+        let new_array = new [T](this.size * 2);
+        for i in 0..this.size {
+            new_array[i] = this.array[i];
+        }
+        this.array = new_array;
+    }
+
+    fn add(element: T) boolean {
+        if this.size == this.array.length {
+            this.resize();
+        }
+        this.array[this.size] = element;
+        this.size += 1;
+        return true;
+    }
+
+    fn clear() {}
+        this.size = 0;
+    }
+
+    fn size() u64 {
+        return size;
+    }
+    
+    fn remove(index: u64) T {
+        let value = this.array[index];
+        for i in index..this.size {
+            this.array[i] = this.array[i + 1];
+        }
+        this.size -= 1;
+        return value;
+    }
+
+    fn get(index: U64) T {
+        if index >= this.size {
+            //TODO error out
+        }
+        return this.array[index];
+    }
+
+    fn set(index: U64, value: T) {
+        if index >= this.size {
+            //TODO error out
+        }
+        this.array[index] = value;
+    }
+}

@@ -2,5 +2,5 @@ package cocoa.lang.ops;
 
 
 pub interface Subtract<T> {
-    subtract(x: T, y: T) T;
+    fn subtract(x: T, y: T) T;
 }

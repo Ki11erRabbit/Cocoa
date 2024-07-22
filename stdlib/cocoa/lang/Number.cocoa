@@ -2,5 +2,6 @@ package cocoa.lang;
 import cocoa.lang.ops.*;
 
 pub interface Number extends Add, Subtract, Multiply, Divide, Modulo, Equals, Order {
-    negate() Number;
+    fn negate() Number;
+    static fn zero() Number;
 }

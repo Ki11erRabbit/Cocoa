@@ -3,28 +3,28 @@ import cocoa.lang.Number;
 
 pub class U8 implements Number {
     pub value: u8;
-    pub add(other: U8) U8 {
+    pub fn add(other: U8) U8 {
         return U8(value + other.value);
     } 
-    pub subtract(other: U8) U8 {
+    pub fn subtract(other: U8) U8 {
         return U8(value - other.value);
     } 
-    pub multiply(other: U8) U8 {
+    pub fn multiply(other: U8) U8 {
         return U8(value * other.value);
     } 
-    pub divide(other: U8) U8 {
+    pub fn divide(other: U8) U8 {
         return U8(value / other.value);
     } 
-    pub modulo(other: U8) U8 {
+    pub fn modulo(other: U8) U8 {
         return U8(value % other.value);
     } 
-    pub negate() U8 {
+    pub fn negate() U8 {
         return U8(-value);
     } 
-    pub equals(other: U8) bool {
+    pub fn equals(other: U8) bool {
         return value == other.value;
     } 
-    pub compare(other: U8) i8 {
+    pub fn compare(other: U8) i8 {
         return value - other.value;
     } 
 }

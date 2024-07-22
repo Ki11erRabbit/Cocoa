@@ -1,0 +1,392 @@
+package cocoa.collection;
+import cocoa.lang.Option;
+import cocoa.collection.Collection;
+
+pub interface Iterator<I> {
+    fn next() Option<I>;
+    fn count() u64 {
+        return fold(0, |count, _| count + 1);
+    }
+    fn last() Option<I> {
+        return fold(None, |_, item| new Some(item));
+    }
+    fn advanceBy(n: u64) Either<(), U64> {
+        for i in 0..n {
+            if this.next().is_none() {
+                return new Right(n - i);
+            }
+        }
+        new Left(());
+    }
+    fn nth(n: u64) Option<I> {
+        advanceBy(n).toMaybe();
+        return next();
+    }
+    fn chain(other: Iterator<I>) Chain<Iterator<I>> {
+        return new Chain(this, other);
+    }
+    fn zip<J>(other: Iterator<J>) Zip<Iterator<I>, Iterator<J>> {
+        return new Zip(this, other);
+    }
+    fn map<J>(f: (I) -> J) Map<Iterator<I>, J> {
+        return new Map(this, f);
+    }
+    fn forEach(f: (I) -> ()) {
+        while let Some(item) = next() {
+            f(item);
+        }
+    }
+    fn filter(f: (I) -> bool) Filter<Iterator<I>> {
+        return new Filter(this, f);
+    }
+    fn filterMap<J>(f: (I) -> Option<J>) FilterMap<Iterator<I>, J> {
+        return new FilterMap(this, f);
+    }
+    fn enumerate() Enumerate<Iterator<I>> {
+        return new Enumerate(this);
+    }
+    fn peakable() Peakable<Iterator<I>> {
+        return new Peakable(this);
+    }
+    fn skipWhile(f: (I) -> bool) SkipWhile<Iterator<I>> {
+        return new SkipWhile(this, f);
+    }
+    fn takeWhile(f: (I) -> bool) TakeWhile<Iterator<I>> {
+        return new TakeWhile(this, f);
+    }
+    fn mapWhile<J>(f: (I) -> Option<J>) MapWhile<Iterator<I>, J> {
+        return new MapWhile(this, f);
+    }
+    fn skip(n: u64) Skip<Iterator<I>> {
+        return new Skip(this, n);
+    }
+    fn take(n: u64) Take<Iterator<I>> {
+        return new Take(this, n);
+    }
+    fn collect(collection: Collection<I>) {
+        for item in this {
+            collection.add(item);
+        }
+    }
+    fn fold<J>(initial: J, f: (J, I) -> J) J {
+        let result = initial;
+        for item in this {
+            result = f(result, item);
+        }
+        return result;
+    }
+    fn all(f: (I) -> bool) bool {
+        for item in this {
+            if !f(item) {
+                return false;
+            }
+        }
+        return true;
+    }
+    fn any(f: (I) -> bool) bool {
+        for item in this {
+            if f(item) {
+                return true;
+            }
+        }
+        return false;
+    }
+    fn find(f: (I) -> bool) Option<I> {
+        for item in this {
+            if f(item) {
+                return new Some(item);
+            }
+        }
+        return None;
+    }
+    fn max<I: Order>(self) Option<I> {
+        return fold(None, |max, item| {
+            match max {
+                None => new Some(item),
+                Some(max) => new Some(max.max(item)),
+            }
+        });
+    }
+    fn min<I: Order>(self) Option<I> {
+        return fold(None, |min, item| {
+            match min {
+                None => new Some(item),
+                Some(min) => new Some(min.min(item)),
+            }
+        });
+    }
+    fn reverse() Reverse<DoubleEndedIterator<I>> {
+        return new Reverse(this);
+    }
+    fn cycle() Cycle<Iterator<I>> {
+        return new Cycle(this);
+    }
+    fn sum<I: Number>(self) I {
+        return fold(I.zero(), |sum, item| sum + item);
+    }
+    fn product<I: Number>(self) I {
+        return fold(I::one(), |product, item| product * item);
+    }
+    
+    pub class Chain<A> implements Iterator<A> {
+        a: Iterator<A>;
+        b: Iterator<A>;
+        first: bool;
+
+        pub Chain(a: Iterator<A>, b: Iterator<A>) {
+            this.a = a;
+            this.b = b;
+            this.first = true;
+        }
+
+        fn next() Option<A> {
+            if first {
+                let next = a.next();
+                if next.isNone() {
+                    first = false;
+                    return b.next();
+                }
+                return next;
+            }
+            return b.next();
+        }
+    }
+
+    pub class Zip<A, B> implements Iterator<(A, B)> {
+        a: Iterator<A>;
+        b: Iterator<B>;
+        pub Zip(a: Iterator<A>, b: Iterator<B>) {
+            this.a = a;
+            this.b = b;
+        }
+        fn next() Option<(A, B)> {
+            let a = a.next();
+            let b = b.next();
+            if a.isNone() || b.isNone() {
+                return None;
+            }
+            return new Some((a.unwrap(), b.unwrap()));
+        }
+    }
+
+    pub class Map<A, B> implements Iterator<B> {
+        a: Iterator<A>;
+        f: (A) -> B;
+        pub Map(a: Iterator<A>, f: (A) -> B) {
+            this.a = a;
+            this.f = f;
+        }
+        fn next() Option<B> {
+            return a.next().map(f);
+        }
+    }
+
+    pub class Filter<A> implements Iterator<A> {
+        a: Iterator<A>;
+        f: (A) -> bool;
+        pub Filter(a: Iterator<A>, f: (A) -> bool) {
+            this.a = a;
+            this.f = f;
+        }
+        fn next() Option<A> {
+            let next = a.next();
+            if next.isNone() {
+                return None;
+            }
+            if f(next.unwrap()) {
+                return next;
+            }
+        }
+    }
+    
+    pub class FilterMap<A, B> implements Iterator<B> {
+        a: Iterator<A>;
+        f: (A) -> Option<B>;
+        pub FilterMap(a: Iterator<A>, f: (A) -> Option<B>) {
+            this.a = a;
+            this.f = f;
+        }
+        fn next() Option<B> {
+            let next = a.next();
+            if next.isNone() {
+                return None;
+            }
+            return f(next.unwrap());
+        }
+    }
+
+    pub class Enumerate<A> implements Iterator<(u64, A)> {
+        a: Iterator<A>;
+        i: u64;
+        pub Enumerate(a: Iterator<A>) {
+            this.a = a;
+            this.i = 0;
+        }
+        fn next() Option<(u64, A)> {
+            let next = a.next();
+            if next.isNone() {
+                return None;
+            }
+            let result = (i, next.unwrap());
+            i += 1;
+            return new Some(result);
+        }
+    }
+
+    pub class Peakable<A> implements Iterator<A> {
+        a: Iterator<A>;
+        next: Option<A>;
+        pub Peakable(a: Iterator<A>) {
+            this.a = a;
+            this.next = a.next();
+        }
+        fn next() Option<A> {
+            let next = this.next;
+            this.next = a.next();
+            return next;
+        }
+        fn peak() Option<A> {
+            return next;
+        }
+    }
+    
+    pub class SkipWhile<A> implements Iterator<A> {
+        a: Iterator<A>;
+        f: (A) -> bool;
+        done: bool;
+        pub SkipWhile(a: Iterator<A>, f: (A) -> bool) {
+            this.a = a;
+            this.f = f;
+            this.done = false;
+        }
+        fn next() Option<A> {
+            if done {
+                return a.next();
+            }
+            let next = a.next();
+            while next.isSome() && f(next.unwrap()) {
+                next = a.next();
+            }
+            done = true;
+            return next;
+        }
+    }
+    
+    pub class TakeWhile<A> implements Iterator<A> {
+        a: Iterator<A>;
+        f: (A) -> bool;
+        done: bool;
+        pub TakeWhile(a: Iterator<A>, f: (A) -> bool) {
+            this.a = a;
+            this.f = f;
+            this.done = false;
+        }
+        fn next() Option<A> {
+            if done {
+                return None;
+            }
+            let next = a.next();
+            if next.isNone() || !f(next.unwrap()) {
+                done = true;
+            }
+            return next;
+        }
+    }
+
+    pub class MapWhile<A, B> implements Iterator<B> {
+        a: Iterator<A>;
+        f: (A) -> Option<B>;
+        done: bool;
+        pub MapWhile(a: Iterator<A>, f: (A) -> Option<B>) {
+            this.a = a;
+            this.f = f;
+            this.done = false;
+        }
+        fn next() Option<B> {
+            if done {
+                return None;
+            }
+            let next = a.next();
+            if next.isNone() {
+                done = true;
+                return None;
+            }
+            let result = f(next.unwrap());
+            if result.isNone() {
+                done = true;
+            }
+            return result;
+        }
+    }
+
+    pub class Skip<A> implements Iterator<A> {
+        a: Iterator<A>;
+        n: u64;
+        pub Skip(a: Iterator<A>, n: u64) {
+            this.a = a;
+            this.n = n;
+        }
+        fn next() Option<A> {
+            if n == 0 {
+                return a.next();
+            }
+            for i in 0..n {
+                if a.next().is_none() {
+                    return new None;
+                }
+            }
+            n = 0;
+            return a.next();
+        }
+    }
+
+    pub class Take<A> implements Iterator<A> {
+        a: Iterator<A>;
+        n: u64;
+        pub Take(a: Iterator<A>, n: u64) {
+            this.a = a;
+            this.n = n;
+        }
+        fn next() Option<A> {
+            if n == 0 {
+                return new None;
+            }
+            n -= 1;
+            return a.next();
+        }
+    }
+
+    pub interface DoubleEndedIterator<I> extends Interator<A> {
+        fn nextBack() Option<I>;
+    }
+
+    pub class Reverse<A> implements DoubleEndedIterator<A> {
+        a: DoubleEndedIterator<A>;
+        pub Reverse(a: DoubleEndedIterator<A>) {
+            this.a = a;
+        }
+        fn next() Option<A> {
+            return a.nextBack();
+        }
+        fn nextBack() Option<A> {
+            return a.next();
+        }
+    }
+
+    pub class Cycle<A> implements Iterator<A> {
+        copy: Iterator<A>;
+        a: Iterator<A>;
+        pub Cycle(a: Iterator<A> + Clone) {
+            this.copy = a.clone();
+            this.a = a;
+        }
+        fn next() Option<A> {
+            let next = a.next();
+            if next.isNone() {
+                a = copy.clone();
+                return a.next();
+            }
+            return next;
+        }
+    }
+}

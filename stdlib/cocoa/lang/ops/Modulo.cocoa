@@ -2,5 +2,5 @@ package cocoa.lang.ops;
 
 
 pub interface Modulo<T> {
-    modulo(x: T, y: T) T;
+    fn modulo(x: T, y: T) T;
 }

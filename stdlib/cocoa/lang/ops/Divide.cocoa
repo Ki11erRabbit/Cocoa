@@ -2,5 +2,5 @@ package cocoa.lang.ops;
 
 
 pub interface Divide<T> {
-    divide(x: T, y: T) T;
+    fn divide(x: T, y: T) T;
 }

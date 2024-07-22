@@ -2,5 +2,5 @@ package cocoa.lang.ops;
 
 
 pub interface Add<T> {
-    add(x: T, y: T) T;
+    fn add(x: T, y: T) T;
 }
