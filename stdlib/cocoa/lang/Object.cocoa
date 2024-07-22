@@ -1,0 +1,8 @@
+package cocoa.lang;
+
+pub class Object {
+    // @ is used to indicate that a method is a native method
+    pub getClass() cocoa.lang.Class @ 0;
+
+}
+

@@ -1,0 +1,9 @@
+package cocoa.collection;
+
+pub interface Collection<T> {
+    insert(element: T) boolean;
+    clear();
+    contains(element: T) boolean;
+    remove(element: T) boolean;
+    size() u64;
+}

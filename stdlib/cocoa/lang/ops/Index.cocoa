@@ -1,0 +1,6 @@
+package cocoa.lang.ops;
+
+pub interface Index<I,O> {
+    get(index: I) O;
+    set(index: I, value: O);
+}

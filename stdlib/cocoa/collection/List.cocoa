@@ -1,0 +1,8 @@
+package cocoa.collection;
+import cocoa.collection.Collection;
+import cocoa.lang.ops.Index;
+
+pub interface List<T> extends Collection<T>, Index<u64,T> {
+    add(index: u64, element: T);
+    remove(index: u64): T;
+}

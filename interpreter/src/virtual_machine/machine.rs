@@ -542,7 +542,8 @@ impl Machine<'_> {
                 self.instance_of(object_ref, pool_index);
             }
             // Array Related
-            B::NewArray(ty, length) => {
+            B::NewArray(ty) => {
+                let length = StackUtils::<u64>::pop(&mut self.stack) as usize;
                 let reference = self.object_table.create_array(ty, length);
                 StackUtils::<Reference>::push(&mut self.stack, reference);
             }

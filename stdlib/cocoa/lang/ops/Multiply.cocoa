@@ -1,0 +1,6 @@
+package cocoa.lang.ops;
+
+
+pub interface Multiply<T> {
+    multiply(x: T, y: T) T;
+}

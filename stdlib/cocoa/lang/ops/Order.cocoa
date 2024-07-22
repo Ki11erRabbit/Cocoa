@@ -1,0 +1,6 @@
+package cocoa.lang.ops;
+
+
+pub interface Order<T> {
+    compare(x: T, y: T) i8;
+}
