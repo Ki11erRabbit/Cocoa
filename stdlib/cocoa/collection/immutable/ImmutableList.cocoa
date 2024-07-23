@@ -1,17 +1,16 @@
-package cocoa.collection;
-import cocoa.collection.Collection;
+package cocoa.collection.immutable;
+import cocoa.collection.immutable.ImmutableCollection;
 import cocoa.lang.ops.Index;
 
-pub interface List<T> extends Collection<T>, Index<u64,T> {
-    fn remove(index: u64) T;
+pub interface ImmutableList<T> extends ImmutableCollection<T>, Index<u64,T> {
     fn front() T;
     fn back() T;
 
-    pub class ListIterator<T> implements DoubleEndedIterator<T> {
-        list: List<T>;
+    pub class ImmutableListIterator<T> implements DoubleEndedIterator<T> {
+        list: ImmutableList<T>;
         nextPosition: u64;
         backNextPosition: u64;
-        pub ListIterator(list: List<T>) {
+        pub ListIterator(list: ImmutableList<T>) {
             this.nextPosition = 0;
             this.backNextPosition = list.size() - 1;
             this.list = list;

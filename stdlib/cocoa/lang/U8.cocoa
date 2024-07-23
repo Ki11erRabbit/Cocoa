@@ -3,6 +3,9 @@ import cocoa.lang.Number;
 
 pub class U8 implements Number {
     pub value: u8;
+    pub U8(value: u8) {
+        this.value = value;
+    }
     pub fn add(other: U8) U8 {
         return U8(value + other.value);
     } 
@@ -18,13 +21,19 @@ pub class U8 implements Number {
     pub fn modulo(other: U8) U8 {
         return U8(value % other.value);
     } 
-    pub fn negate() U8 {
-        return U8(-value);
+    pub fn negate() I8 {
+        return I8(-value);
     } 
     pub fn equals(other: U8) bool {
         return value == other.value;
     } 
     pub fn compare(other: U8) i8 {
-        return value - other.value;
+        if (value < other.value) {
+            return -1;
+        } else if (value > other.value) {
+            return 1;
+        } else {
+            return 0;
+        }
     } 
 }

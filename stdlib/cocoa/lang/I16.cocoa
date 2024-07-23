@@ -1,0 +1,33 @@
+package cocoa.lang;
+import cocoa.lang.Number;
+
+pub class I16 implements Number {
+    pub value: i16;
+    pub I16(value: i16) {
+        this.value = value;
+    }
+    pub fn add(other: I16) I16 {
+        return I16(value + other.value);
+    } 
+    pub fn subtract(other: I16) I16 {
+        return I16(value - other.value);
+    } 
+    pub fn multiply(other: I16) I16 {
+        return I16(value * other.value);
+    } 
+    pub fn divide(other: I16) I16 {
+        return I16(value / other.value);
+    } 
+    pub fn modulo(other: I16) I16 {
+        return I16(value % other.value);
+    } 
+    pub fn negate() I16 {
+        return I16(-value);
+    } 
+    pub fn equals(other: I16) bool {
+        return value == other.value;
+    } 
+    pub fn compare(other: I16) i8 {
+        return value - other.value;
+    } 
+}

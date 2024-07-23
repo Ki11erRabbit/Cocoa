@@ -1,0 +1,36 @@
+package cocoa.collection.mutable;
+import cocoa.collection.mutable.MutableCollection;
+import cocoa.lang.ops.Index;
+
+pub interface MutableList<T> extends MutableCollection<T>, IndexMut<u64,T> {
+    fn remove(index: u64) T;
+    fn front() T;
+    fn back() T;
+
+    pub class MutableListIterator<T> implements DoubleEndedIterator<T> {
+        list: MutableList<T>;
+        nextPosition: u64;
+        backNextPosition: u64;
+        pub ListIterator(list: MutableList<T>) {
+            this.nextPosition = 0;
+            this.backNextPosition = list.size() - 1;
+            this.list = list;
+        }
+        fn next() Option<T> {
+            if nextPosition == backNextPosition {
+                return new None;
+            }
+            let next = list[nextPosition];
+            nextPosition += 1;
+            return new Some(next);
+        }
+        fn nextBack() Option<T> {
+            if nextPosition == backNextPosition {
+                return new None;
+            }
+            let next = list[backNextPosition];
+            backNextPosition -= 1;
+            return new Some(next);
+        }
+    }
+}

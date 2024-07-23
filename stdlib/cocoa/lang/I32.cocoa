@@ -1,0 +1,33 @@
+package cocoa.lang;
+import cocoa.lang.Number;
+
+pub class I32 implements Number {
+    pub value: i32;
+    pub I32(value: i32) {
+        this.value = value;
+    }
+    pub fn add(other: I32) I32 {
+        return I32(value + other.value);
+    } 
+    pub fn subtract(other: I32) I32 {
+        return I32(value - other.value);
+    } 
+    pub fn multiply(other: I32) I32 {
+        return I32(value * other.value);
+    } 
+    pub fn divide(other: I32) I32 {
+        return I32(value / other.value);
+    } 
+    pub fn modulo(other: I32) I32 {
+        return I32(value % other.value);
+    } 
+    pub fn negate() I32 {
+        return I32(-value);
+    } 
+    pub fn equals(other: I32) bool {
+        return value == other.value;
+    } 
+    pub fn compare(other: I32) i8 {
+        return value - other.value;
+    } 
+}

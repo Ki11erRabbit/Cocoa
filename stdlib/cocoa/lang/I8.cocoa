@@ -1,0 +1,33 @@
+package cocoa.lang;
+import cocoa.lang.Number;
+
+pub class I8 implements Number {
+    pub value: i8;
+    pub I8(value: i8) {
+        this.value = value;
+    }
+    pub fn add(other: I8) I8 {
+        return I8(value + other.value);
+    } 
+    pub fn subtract(other: I8) I8 {
+        return I8(value - other.value);
+    } 
+    pub fn multiply(other: I8) I8 {
+        return I8(value * other.value);
+    } 
+    pub fn divide(other: I8) I8 {
+        return I8(value / other.value);
+    } 
+    pub fn modulo(other: I8) I8 {
+        return I8(value % other.value);
+    } 
+    pub fn negate() I8 {
+        return I8(-value);
+    } 
+    pub fn equals(other: I8) bool {
+        return value == other.value;
+    } 
+    pub fn compare(other: I8) i8 {
+        return value - other.value;
+    } 
+}

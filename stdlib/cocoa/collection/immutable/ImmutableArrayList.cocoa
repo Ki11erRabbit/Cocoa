@@ -1,0 +1,26 @@
+package cocoa.collection.immutable;
+import cocoa.collection.mutable.ArrayList;
+
+pub class ImmutableArrayList<T> implements ImmutableList<T> {
+    array: [T];
+
+    pub ImmutableArrayList(list: ArrayList<T>) {
+        this.array = new [T](list.size());
+        for i in 0..list.size() {
+            this.array[i] = list[i];
+        }
+        this.size = list.size();
+    }
+
+    fn size() u64 {
+        return array.size();
+    }
+    
+    fn get(index: U64) T {
+        if index >= this.size {
+            //TODO error out
+        }
+        return this.array[index];
+    }
+
+}

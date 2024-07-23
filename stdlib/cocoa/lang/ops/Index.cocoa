@@ -2,5 +2,4 @@ package cocoa.lang.ops;
 
 pub interface Index<I,O> {
     fn get(index: I) O;
-    fn set(index: I, value: O);
 }

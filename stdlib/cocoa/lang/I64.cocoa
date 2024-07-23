@@ -1,0 +1,33 @@
+package cocoa.lang;
+import cocoa.lang.Number;
+
+pub class I64 implements Number {
+    pub value: i64;
+    pub I64(value: i64) {
+        this.value = value;
+    } 
+    pub fn add(other: I64) I64 {
+        return I64(value + other.value);
+    } 
+    pub fn subtract(other: I64) I64 {
+        return I64(value - other.value);
+    } 
+    pub fn multiply(other: I64) I64 {
+        return I64(value * other.value);
+    } 
+    pub fn divide(other: I64) I64 {
+        return I64(value / other.value);
+    } 
+    pub fn modulo(other: I64) I64 {
+        return I64(value % other.value);
+    } 
+    pub fn negate() I64 {
+        return I64(-value);
+    } 
+    pub fn equals(other: I64) bool {
+        return value == other.value;
+    } 
+    pub fn compare(other: I64) i8 {
+        return value - other.value;
+    } 
+}

@@ -1,0 +1,5 @@
+package cocoa.lang.ops;
+
+pub interface IndexMut<I,O> {
+    fn set(index: I, value: O);
+}

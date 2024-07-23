@@ -1,0 +1,5 @@
+package cocoa.collection;
+
+pub interface Collection<T> {
+    fn size() u64;
+}
