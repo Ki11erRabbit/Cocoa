@@ -1,0 +1,5 @@
+package cocoa.lang;
+
+pub interface Copy {
+    fn copy() -> Self;
+}

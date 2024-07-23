@@ -1,0 +1,5 @@
+package cocoa.lang;
+
+pub interface Clone implement Copy {
+    fn clone() Self;
+}
