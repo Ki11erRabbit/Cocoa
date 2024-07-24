@@ -72,614 +72,560 @@ Bounds: Vec<Type> = {
     }
 };
 
-
+#[inline]
 ClassDeclaration: ClassDeclaration = {
-    "pub" "class" <id:Identifier> "{" <fields:Fields> <methods:Methods> "}" => {
+    "pub" "class" <id:Identifier> "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Public)
-        .fields(fields)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
-    "prot" "class" <id:Identifier> "{" <fields:Fields> <methods:Methods> "}" => {
+    "prot" "class" <id:Identifier> "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Protected)
-        .fields(fields)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
-    "class" <id:Identifier> "{" <fields:Fields> <methods:Methods> "}" => {
+    "class" <id:Identifier> "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Private)
-        .fields(fields)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
 
-    "pub" "interface" <id:Identifier> "{" <methods:Methods> "}" => {
+    "pub" "interface" <id:Identifier> "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .class_type(ClassType::Interface)
         .visibility(Visibility::Public)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
-    "prot" "interface" <id:Identifier> "{" <methods:Methods> "}" => {
+    "prot" "interface" <id:Identifier> "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .class_type(ClassType::Interface)
         .visibility(Visibility::Protected)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
-    "interface" <id:Identifier> "{" <methods:Methods> "}" => {
+    "interface" <id:Identifier> "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .class_type(ClassType::Interface)
         .visibility(Visibility::Private)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
 
-    "pub" "abstract" "class" <id:Identifier> "{" <fields:Fields> <methods:Methods> "}" => {
+    "pub" "abstract" "class" <id:Identifier> "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Public)
-        .fields(fields)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
-    "prot" "abstract" "class" <id:Identifier> "{" <fields:Fields> <methods:Methods> "}" => {
+    "prot" "abstract" "class" <id:Identifier> "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Protected)
-        .fields(fields)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
-    "abstract" "class" <id:Identifier> "{" <fields:Fields> <methods:Methods> "}" => {
+    "abstract" "class" <id:Identifier> "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Private)
-        .fields(fields)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
 
 
-    "pub" "class" <id:Identifier> "<" <ty:TypeParameters> ">" "{" <fields:Fields> <methods:Methods> "}" => {
+    "pub" "class" <id:Identifier> "<" <ty:TypeParameters> ">" "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Public)
-        .fields(fields)
         .type_parameters(ty)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
-    "prot" "class" <id:Identifier> "<" <ty:TypeParameters> ">" "{" <fields:Fields> <methods:Methods> "}" => {
+    "prot" "class" <id:Identifier> "<" <ty:TypeParameters> ">" "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Protected)
-        .fields(fields)
         .type_parameters(ty)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
-    "class" <id:Identifier> "<" <ty:TypeParameters> ">" "{" <fields:Fields> <methods:Methods> "}" => {
+    "class" <id:Identifier> "<" <ty:TypeParameters> ">" "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Private)
-        .fields(fields)
         .type_parameters(ty)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
 
-    "pub" "interface" <id:Identifier> "<" <ty:TypeParameters> ">" "{" <methods:Methods> "}" => {
+    "pub" "interface" <id:Identifier> "<" <ty:TypeParameters> ">" "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .class_type(ClassType::Interface)
         .visibility(Visibility::Public)
         .type_parameters(ty)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
-    "prot" "interface" <id:Identifier> "<" <ty:TypeParameters> ">" "{" <methods:Methods> "}" => {
+    "prot" "interface" <id:Identifier> "<" <ty:TypeParameters> ">" "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .class_type(ClassType::Interface)
         .visibility(Visibility::Protected)
         .type_parameters(ty)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
-    "interface" <id:Identifier> "<" <ty:TypeParameters> ">" "{" <methods:Methods> "}" => {
+    "interface" <id:Identifier> "<" <ty:TypeParameters> ">" "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .class_type(ClassType::Interface)
         .visibility(Visibility::Private)
         .type_parameters(ty)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
 
-    "pub" "abstract" "class" <id:Identifier> "<" <ty:TypeParameters> ">" "{" <fields:Fields> <methods:Methods> "}" => {
+    "pub" "abstract" "class" <id:Identifier> "<" <ty:TypeParameters> ">" "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Public)
-        .fields(fields)
         .type_parameters(ty)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
-    "prot" "abstract" "class" <id:Identifier> "<" <ty:TypeParameters> ">" "{" <fields:Fields> <methods:Methods> "}" => {
+    "prot" "abstract" "class" <id:Identifier> "<" <ty:TypeParameters> ">" "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Protected)
-        .fields(fields)
         .type_parameters(ty)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
-    "abstract" "class" <id:Identifier> "<" <ty:TypeParameters> ">" "{" <fields:Fields> <methods:Methods> "}" => {
+    "abstract" "class" <id:Identifier> "<" <ty:TypeParameters> ">" "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Private)
         .type_parameters(ty)
-        .fields(fields)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
     
 
-    "pub" "class" <id:Identifier> "extends" <sup:SuperClass> "{" <fields:Fields> <methods:Methods> "}" => {
+    "pub" "class" <id:Identifier> "extends" <sup:SuperClass> "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Public)
-        .fields(fields)
         .super_class(sup)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
-    "prot" "class" <id:Identifier> "extends" <sup:SuperClass> "{" <fields:Fields> <methods:Methods> "}" => {
+    "prot" "class" <id:Identifier> "extends" <sup:SuperClass> "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Protected)
         .super_class(sup)
-        .fields(fields)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
-    "class" <id:Identifier> "extends" <sup:SuperClass> "{" <fields:Fields> <methods:Methods> "}" => {
+    "class" <id:Identifier> "extends" <sup:SuperClass> "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Private)
-        .fields(fields)
         .super_class(sup)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
 
-    "pub" "interface" <id:Identifier> "extends" <list:InterfaceList> "{" <methods:Methods> "}" => {
+    "pub" "interface" <id:Identifier> "extends" <list:InterfaceList> "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .class_type(ClassType::Interface)
         .visibility(Visibility::Public)
         .interfaces(list)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
-    "prot" "interface" <id:Identifier> "extends" <list:InterfaceList> "{" <methods:Methods> "}" => {
+    "prot" "interface" <id:Identifier> "extends" <list:InterfaceList> "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .class_type(ClassType::Interface)
         .visibility(Visibility::Protected)
         .interfaces(list)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
-    "interface" <id:Identifier> "extends" <list:InterfaceList> "{" <methods:Methods> "}" => {
+    "interface" <id:Identifier> "extends" <list:InterfaceList> "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .class_type(ClassType::Interface)
         .visibility(Visibility::Private)
         .interfaces(list)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
 
-    "pub" "abstract" "class" <id:Identifier> "extends" <sup:SuperClass> "{" <fields:Fields> <methods:Methods> "}" => {
+    "pub" "abstract" "class" <id:Identifier> "extends" <sup:SuperClass> "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Public)
         .super_class(sup)
-        .fields(fields)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
-    "prot" "abstract" "class" <id:Identifier> "extends" <sup:SuperClass> "{" <fields:Fields> <methods:Methods> "}" => {
+    "prot" "abstract" "class" <id:Identifier> "extends" <sup:SuperClass> "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Protected)
         .super_class(sup)
-        .fields(fields)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
-    "abstract" "class" <id:Identifier> "extends" <sup:SuperClass> "{" <fields:Fields> <methods:Methods> "}" => {
+    "abstract" "class" <id:Identifier> "extends" <sup:SuperClass> "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Private)
         .super_class(sup)
-        .fields(fields)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
 
 
-    "pub" "class" <id:Identifier> "<" <ty:TypeParameters> ">" "extends" <sup:SuperClass> "{" <fields:Fields> <methods:Methods> "}" => {
+    "pub" "class" <id:Identifier> "<" <ty:TypeParameters> ">" "extends" <sup:SuperClass> "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Public)
         .super_class(sup)
-        .fields(fields)
         .type_parameters(ty)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
-    "prot" "class" <id:Identifier> "<" <ty:TypeParameters> ">" "extends" <sup:SuperClass> "{" <fields:Fields> <methods:Methods> "}" => {
+    "prot" "class" <id:Identifier> "<" <ty:TypeParameters> ">" "extends" <sup:SuperClass> "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Protected)
         .super_class(sup)
-        .fields(fields)
         .type_parameters(ty)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
-    "class" <id:Identifier> "<" <ty:TypeParameters> ">" "extends" <sup:SuperClass> "{" <fields:Fields> <methods:Methods> "}" => {
+    "class" <id:Identifier> "<" <ty:TypeParameters> ">" "extends" <sup:SuperClass> "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Private)
         .super_class(sup)
         .interfaces(list)
-        .fields(fields)
         .type_parameters(ty)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
 
-    "pub" "interface" <id:Identifier> "<" <ty:TypeParameters> ">" "extends" <list:InterfaceList> "{" <methods:Methods> "}" => {
+    "pub" "interface" <id:Identifier> "<" <ty:TypeParameters> ">" "extends" <list:InterfaceList> "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .class_type(ClassType::Interface)
         .visibility(Visibility::Public)
         .interfaces(list)
         .type_parameters(ty)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
-    "prot" "interface" <id:Identifier> "<" <ty:TypeParameters> ">" "extends" <list:InterfaceList> "{" <methods:Methods> "}" => {
+    "prot" "interface" <id:Identifier> "<" <ty:TypeParameters> ">" "extends" <list:InterfaceList> "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .class_type(ClassType::Interface)
         .visibility(Visibility::Protected)
         .interfaces(list)
         .type_parameters(ty)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
-    "interface" <id:Identifier> "<" <ty:TypeParameters> ">" "extends" <list:InterfaceList> "{" <methods:Methods> "}" => {
+    "interface" <id:Identifier> "<" <ty:TypeParameters> ">" "extends" <list:InterfaceList> "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .class_type(ClassType::Interface)
         .visibility(Visibility::Private)
         .interfaces(list)
         .type_parameters(ty)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
 
-    "pub" "abstract" "class" <id:Identifier> "<" <ty:TypeParameters> ">" "extends" <sup:SuperClass> "{" <fields:Fields> <methods:Methods> "}" => {
+    "pub" "abstract" "class" <id:Identifier> "<" <ty:TypeParameters> ">" "extends" <sup:SuperClass> "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Public)
         .super_class(sup)
-        .fields(fields)
         .type_parameters(ty)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
-    "prot" "abstract" "class" <id:Identifier> "<" <ty:TypeParameters> ">" "extends" <sup:SuperClass> "{" <fields:Fields> <methods:Methods> "}" => {
+    "prot" "abstract" "class" <id:Identifier> "<" <ty:TypeParameters> ">" "extends" <sup:SuperClass> "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Protected)
         .super_class(sup)
-        .fields(fields)
         .type_parameters(ty)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
-    "abstract" "class" <id:Identifier> "<" <ty:TypeParameters> ">" "extends" <sup:SuperClass> "{" <fields:Fields> <methods:Methods> "}" => {
+    "abstract" "class" <id:Identifier> "<" <ty:TypeParameters> ">" "extends" <sup:SuperClass> "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Private)
         .super_class(sup)
         .type_parameters(ty)
-        .fields(fields)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
     
 
-    "pub" "class" <id:Identifier> "implements" <list:InterfaceList> "{" <fields:Fields> <methods:Methods> "}" => {
+    "pub" "class" <id:Identifier> "implements" <list:InterfaceList> "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Public)
         .interfaces(list)
-        .fields(fields)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
-    "prot" "class" <id:Identifier> "implements" <list:InterfaceList> "{" <fields:Fields> <methods:Methods> "}" => {
+    "prot" "class" <id:Identifier> "implements" <list:InterfaceList> "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Protected)
-        .fields(fields)
         .interfaces(list)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
-    "class" <id:Identifier> "implements" <list:InterfaceList> "{" <fields:Fields> <methods:Methods> "}" => {
+    "class" <id:Identifier> "implements" <list:InterfaceList> "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Private)
-        .fields(fields)
         .interfaces(list)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
 
-    "pub" "abstract" "class" <id:Identifier> "implements" <list:InterfaceList> "{" <fields:Fields> <methods:Methods> "}" => {
+    "pub" "abstract" "class" <id:Identifier> "implements" <list:InterfaceList> "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Public)
-        .fields(fields)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
-    "prot" "abstract" "class" <id:Identifier> "implements" <list:InterfaceList> "{" <fields:Fields> <methods:Methods> "}" => {
+    "prot" "abstract" "class" <id:Identifier> "implements" <list:InterfaceList> "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Protected)
-        .fields(fields)
         .interfaces(list)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
-    "abstract" "class" <id:Identifier> "implements" <list:InterfaceList> "{" <fields:Fields> <methods:Methods> "}" => {
+    "abstract" "class" <id:Identifier> "implements" <list:InterfaceList> "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Private)
-        .fields(fields)
         .interfaces(list)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
 
 
-    "pub" "class" <id:Identifier> "<" <ty:TypeParameters> ">" "implements" <list:InterfaceList> "{" <fields:Fields> <methods:Methods> "}" => {
+    "pub" "class" <id:Identifier> "<" <ty:TypeParameters> ">" "implements" <list:InterfaceList> "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Public)
-        .fields(fields)
         .interfaces(list)
         .type_parameters(ty)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
-    "prot" "class" <id:Identifier> "<" <ty:TypeParameters> ">" "implements" <list:InterfaceList> "{" <fields:Fields> <methods:Methods> "}" => {
+    "prot" "class" <id:Identifier> "<" <ty:TypeParameters> ">" "implements" <list:InterfaceList> "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Protected)
-        .fields(fields)
         .interfaces(list)
         .type_parameters(ty)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
-    "class" <id:Identifier> "<" <ty:TypeParameters> ">" "implements" <list:InterfaceList> "{" <fields:Fields> <methods:Methods> "}" => {
+    "class" <id:Identifier> "<" <ty:TypeParameters> ">" "implements" <list:InterfaceList> "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Private)
-        .fields(fields)
         .interfaces(list)
         .type_parameters(ty)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
 
 
-    "pub" "abstract" "class" <id:Identifier> "<" <ty:TypeParameters> ">" "implements" <list:InterfaceList> "{" <fields:Fields> <methods:Methods> "}" => {
+    "pub" "abstract" "class" <id:Identifier> "<" <ty:TypeParameters> ">" "implements" <list:InterfaceList> "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Public)
-        .fields(fields)
         .interfaces(list)
         .type_parameters(ty)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
-    "prot" "abstract" "class" <id:Identifier> "<" <ty:TypeParameters> ">" "implements" <list:InterfaceList> "{" <fields:Fields> <methods:Methods> "}" => {
+    "prot" "abstract" "class" <id:Identifier> "<" <ty:TypeParameters> ">" "implements" <list:InterfaceList> "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Protected)
-        .fields(fields)
         .interfaces(list)
         .type_parameters(ty)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
-    "abstract" "class" <id:Identifier> "<" <ty:TypeParameters> ">" "implements" <list:InterfaceList> "{" <fields:Fields> <methods:Methods> "}" => {
+    "abstract" "class" <id:Identifier> "<" <ty:TypeParameters> ">" "implements" <list:InterfaceList> "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Private)
         .type_parameters(ty)
         .interfaces(list)
-        .fields(fields)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
     
 
-    "pub" "class" <id:Identifier> "extends" <sup:SuperClass> "implements" <list:InterfaceList> "{" <fields:Fields> <methods:Methods> "}" => {
+    "pub" "class" <id:Identifier> "extends" <sup:SuperClass> "implements" <list:InterfaceList> "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Public)
-        .fields(fields)
         .interfaces(list)
         .super_class(sup)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
-    "prot" "class" <id:Identifier> "extends" <sup:SuperClass> "implements" <list:InterfaceList> "{" <fields:Fields> <methods:Methods> "}" => {
+    "prot" "class" <id:Identifier> "extends" <sup:SuperClass> "implements" <list:InterfaceList> "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Protected)
         .super_class(sup)
         .interfaces(list)
-        .fields(fields)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
-    "class" <id:Identifier> "extends" <sup:SuperClass> "implements" <list:InterfaceList> "{" <fields:Fields> <methods:Methods> "}" => {
+    "class" <id:Identifier> "extends" <sup:SuperClass> "implements" <list:InterfaceList> "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Private)
-        .fields(fields)
         .interfaces(list)
         .super_class(sup)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
 
-    "pub" "abstract" "class" <id:Identifier> "extends" <sup:SuperClass> "implements" <list:InterfaceList> "{" <fields:Fields> <methods:Methods> "}" => {
+    "pub" "abstract" "class" <id:Identifier> "extends" <sup:SuperClass> "implements" <list:InterfaceList> "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Public)
         .super_class(sup)
         .interfaces(list)
-        .fields(fields)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
-    "prot" "abstract" "class" <id:Identifier> "extends" <sup:SuperClass> "implements" <list:InterfaceList> "{" <fields:Fields> <methods:Methods> "}" => {
+    "prot" "abstract" "class" <id:Identifier> "extends" <sup:SuperClass> "implements" <list:InterfaceList> "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Protected)
         .super_class(sup)
-        .fields(fields)
         .interfaces(list)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
-    "abstract" "class" <id:Identifier> "extends" <sup:SuperClass> "implements" <list:InterfaceList> "{" <fields:Fields> <methods:Methods> "}" => {
+    "abstract" "class" <id:Identifier> "extends" <sup:SuperClass> "implements" <list:InterfaceList> "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Private)
         .super_class(sup)
         .interfaces(list)
-        .fields(fields)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
 
 
-    "pub" "class" <id:Identifier> "<" <ty:TypeParameters> ">" "extends" <sup:SuperClass> "implements" <list:InterfaceList> "{" <fields:Fields> <methods:Methods> "}" => {
+    "pub" "class" <id:Identifier> "<" <ty:TypeParameters> ">" "extends" <sup:SuperClass> "implements" <list:InterfaceList> "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Public)
         .super_class(sup)
-        .fields(fields)
         .type_parameters(ty)
         .interfaces(list)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
-    "prot" "class" <id:Identifier> "<" <ty:TypeParameters> ">" "extends" <sup:SuperClass> "implements" <list:InterfaceList> "{" <fields:Fields> <methods:Methods> "}" => {
+    "prot" "class" <id:Identifier> "<" <ty:TypeParameters> ">" "extends" <sup:SuperClass> "implements" <list:InterfaceList> "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Protected)
         .super_class(sup)
         .interfaces(list)
-        .fields(fields)
         .type_parameters(ty)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
-    "class" <id:Identifier> "<" <ty:TypeParameters> ">" "extends" <sup:SuperClass> "implements" <list:InterfaceList> "{" <fields:Fields> <methods:Methods> "}" => {
+    "class" <id:Identifier> "<" <ty:TypeParameters> ">" "extends" <sup:SuperClass> "implements" <list:InterfaceList> "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Private)
         .super_class(sup)
         .interfaces(list)
         .interfaces(list)
-        .fields(fields)
         .type_parameters(ty)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
 
-    "pub" "abstract" "class" <id:Identifier> "<" <ty:TypeParameters> ">" "extends" <sup:SuperClass> "implements" <list:InterfaceList> "{" <fields:Fields> <methods:Methods> "}" => {
+    "pub" "abstract" "class" <id:Identifier> "<" <ty:TypeParameters> ">" "extends" <sup:SuperClass> "implements" <list:InterfaceList> "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Public)
         .super_class(sup)
-        .fields(fields)
         .interfaces(list)
         .type_parameters(ty)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
-    "prot" "abstract" "class" <id:Identifier> "<" <ty:TypeParameters> ">" "extends" <sup:SuperClass> "implements" <list:InterfaceList> "{" <fields:Fields> <methods:Methods> "}" => {
+    "prot" "abstract" "class" <id:Identifier> "<" <ty:TypeParameters> ">" "extends" <sup:SuperClass> "implements" <list:InterfaceList> "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Protected)
         .super_class(sup)
         .interfaces(list)
-        .fields(fields)
         .type_parameters(ty)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
-    "abstract" "class" <id:Identifier> "<" <ty:TypeParameters> ">" "extends" <sup:SuperClass> "implements" <list:InterfaceList> "{" <fields:Fields> <methods:Methods> "}" => {
+    "abstract" "class" <id:Identifier> "<" <ty:TypeParameters> ">" "extends" <sup:SuperClass> "implements" <list:InterfaceList> "{" <decs:Declarations> "}" => {
         ClassDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Private)
         .super_class(sup)
         .interfaces(list)
         .type_parameters(ty)
-        .fields(fields)
-        .methods(methods)
+        .decs(decs)
         .build()
     },
 };
+
 
 #[inline]
-Fields: Vec<Field> = {
-    <list:(Field ";")*>=> {
-        list
-    }
-};
-
-
 Field: Field = {
-    "pub" <id:Identifier> ":" <ty:Type> => Field::new(Visibility::Public, id, ty),
-    "prot" <id:Identifier> ":" <ty:Type> => Field::new(Visibility::Protected, id, ty),
-    <id:Identifier> ":" <ty:Type> => Field::new(Visibility::Private, id, ty),
+    "pub" <id:Identifier> ":" <ty:Type> ";" => Field::new(Visibility::Public, id, ty),
+    "prot" <id:Identifier> ":" <ty:Type> ";" => Field::new(Visibility::Protected, id, ty),
+    <id:Identifier> ":" <ty:Type> ";" => Field::new(Visibility::Private, id, ty),
 };
 
 Type: Type = {
@@ -701,16 +647,26 @@ Type: Type = {
     <path:ImportPath> => Type::ClassType(path),
 };
 
-
-Methods: Vec<MethodDeclaration> = {
-    <list:MethodDeclaration*> => {
+#[inline]
+Declarations: Vec<Declaration> = {
+    <dec:Declaration> <mut list:(Declaration)*> => {
+        list.push(dec);
+        list
+    }
+    <mut list:(Declaration)*> => {
         list
     }
 };
 
+Declaration: Declaration = {
+    <field:Field> => Declaration::Field(field),
+    <method:MethodDeclaration> => Declaration::Method(method),
+    <class:ClassDeclaration> => Declaration::Class(class),
+};
 
+#[inline]
 MethodDeclaration: MethodDeclaration = {
-    "pub" "fn" <id:Identifier> "(" <args:ParmeterList> ")" <ty:Type> <block:Block> => {
+    "pub" "fn" <id:Identifier> "(" <args:ParmeterList> ")" <ty:Type> "{" <block:Statements> "}" => {
         MethodDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Public)
@@ -719,7 +675,7 @@ MethodDeclaration: MethodDeclaration = {
         .body(Either::Left(Some(Statement::Block(block))))
         .build()
     },
-    "prot" "fn" <id:Identifier> "(" <args:ParmeterList> ")" <ty:Type> <block:Block> => {
+    "prot" "fn" <id:Identifier> "(" <args:ParmeterList> ")" <ty:Type> "{" <block:Statements> "}" => {
         MethodDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Protected)
@@ -728,7 +684,7 @@ MethodDeclaration: MethodDeclaration = {
         .body(Either::Left(Some(Statement::Block(block))))
         .build()
     },
-    "fn" <id:Identifier> "(" <args:ParmeterList> ")" <ty:Type> <block:Block> => {
+    "fn" <id:Identifier> "(" <args:ParmeterList> ")" <ty:Type> "{" <block:Statements> "}" => {
         MethodDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Private)
@@ -737,7 +693,7 @@ MethodDeclaration: MethodDeclaration = {
         .body(Either::Left(Some(Statement::Block(block))))
         .build()
     },
-    "pub" "fn" <id:Identifier> "(" <args:ParmeterList> ")" <block:Block> => {
+    "pub" "fn" <id:Identifier> "(" <args:ParmeterList> ")" "{" <block:Statements> "}" => {
         MethodDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Public)
@@ -745,7 +701,7 @@ MethodDeclaration: MethodDeclaration = {
         .body(Either::Left(Some(Statement::Block(block))))
         .build()
     },
-    "prot" "fn" <id:Identifier> "(" <args:ParmeterList> ")" <block:Block> => {
+    "prot" "fn" <id:Identifier> "(" <args:ParmeterList> ")" "{" <block:Statements> "}" => {
         MethodDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Protected)
@@ -753,7 +709,7 @@ MethodDeclaration: MethodDeclaration = {
         .body(Either::Left(Some(Statement::Block(block))))
         .build()
     },
-    "fn" <id:Identifier> "(" <args:ParmeterList> ")" <block:Block> => {
+    "fn" <id:Identifier> "(" <args:ParmeterList> ")" "{" <block:Statements> "}" => {
         MethodDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Private)
@@ -761,7 +717,7 @@ MethodDeclaration: MethodDeclaration = {
         .body(Either::Left(Some(Statement::Block(block))))
         .build()
     },
-    "pub" "fn" <id:Identifier> "<" <typ:TypeParameters> ">" "(" <args:ParmeterList> ")" <ty:Type> <block:Block> => {
+    "pub" "fn" <id:Identifier> "<" <typ:TypeParameters> ">" "(" <args:ParmeterList> ")" <ty:Type> "{" <block:Statements> "}" => {
         MethodDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Public)
@@ -771,7 +727,7 @@ MethodDeclaration: MethodDeclaration = {
         .body(Either::Left(Some(Statement::Block(block))))
         .build()
     },
-    "prot" "fn" <id:Identifier> "<" <typ:TypeParameters> ">" "(" <args:ParmeterList> ")" <ty:Type> <block:Block> => {
+    "prot" "fn" <id:Identifier> "<" <typ:TypeParameters> ">" "(" <args:ParmeterList> ")" <ty:Type> "{" <block:Statements> "}" => {
         MethodDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Protected)
@@ -781,7 +737,7 @@ MethodDeclaration: MethodDeclaration = {
         .body(Either::Left(Some(Statement::Block(block))))
         .build()
     },
-    "fn" <id:Identifier> "<" <typ:TypeParameters> ">" "(" <args:ParmeterList> ")" <ty:Type> <block:Block> => {
+    "fn" <id:Identifier> "<" <typ:TypeParameters> ">" "(" <args:ParmeterList> ")" <ty:Type> "{" <block:Statements> "}" => {
         MethodDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Private)
@@ -791,7 +747,7 @@ MethodDeclaration: MethodDeclaration = {
         .body(Either::Left(Some(Statement::Block(block))))
         .build()
     },
-    "pub" "fn" <id:Identifier> "<" <typ:TypeParameters> ">" "(" <args:ParmeterList> ")" <block:Block> => {
+    "pub" "fn" <id:Identifier> "<" <typ:TypeParameters> ">" "(" <args:ParmeterList> ")" "{" <block:Statements> "}" => {
         MethodDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Public)
@@ -800,7 +756,7 @@ MethodDeclaration: MethodDeclaration = {
         .type_parameters(typ)
         .build()
     },
-    "prot" "fn" <id:Identifier> "<" <typ:TypeParameters> ">" "(" <args:ParmeterList> ")" <block:Block> => {
+    "prot" "fn" <id:Identifier> "<" <typ:TypeParameters> ">" "(" <args:ParmeterList> ")" "{" <block:Statements> "}" => {
         MethodDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Protected)
@@ -809,7 +765,7 @@ MethodDeclaration: MethodDeclaration = {
         .body(Either::Left(Some(Statement::Block(block))))
         .build()
     },
-    "fn" <id:Identifier> "<" <typ:TypeParameters> ">" "(" <args:ParmeterList> ")" <block:Block> => {
+    "fn" <id:Identifier> "<" <typ:TypeParameters> ">" "(" <args:ParmeterList> ")" "{" <block:Statements> "}" => {
         MethodDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Private)
@@ -819,7 +775,7 @@ MethodDeclaration: MethodDeclaration = {
         .build()
     },
 
-    "pub" "static" "fn" <id:Identifier> "(" <args:ParmeterList> ")" <ty:Type> <block:Block> => {
+    "pub" "static" "fn" <id:Identifier> "(" <args:ParmeterList> ")" <ty:Type> "{" <block:Statements> "}" => {
         MethodDeclarationBuilder::new()
         .name(id)
         .is_static(true)
@@ -829,7 +785,7 @@ MethodDeclaration: MethodDeclaration = {
         .body(Either::Left(Some(Statement::Block(block))))
         .build()
     },
-    "prot" "static" "fn" <id:Identifier> "(" <args:ParmeterList> ")" <ty:Type> <block:Block> => {
+    "prot" "static" "fn" <id:Identifier> "(" <args:ParmeterList> ")" <ty:Type> "{" <block:Statements> "}" => {
         MethodDeclarationBuilder::new()
         .is_static(true)
         .name(id)
@@ -839,7 +795,7 @@ MethodDeclaration: MethodDeclaration = {
         .body(Either::Left(Some(Statement::Block(block))))
         .build()
     },
-    "static" "fn" <id:Identifier> "(" <args:ParmeterList> ")" <ty:Type> <block:Block> => {
+    "static" "fn" <id:Identifier> "(" <args:ParmeterList> ")" <ty:Type> "{" <block:Statements> "}" => {
         MethodDeclarationBuilder::new()
         .is_static(true)
         .name(id)
@@ -849,7 +805,7 @@ MethodDeclaration: MethodDeclaration = {
         .body(Either::Left(Some(Statement::Block(block))))
         .build()
     },
-    "pub" "static" "fn" <id:Identifier> "(" <args:ParmeterList> ")" <block:Block> => {
+    "pub" "static" "fn" <id:Identifier> "(" <args:ParmeterList> ")" "{" <block:Statements> "}" => {
         MethodDeclarationBuilder::new()
         .is_static(true)
         .name(id)
@@ -858,7 +814,7 @@ MethodDeclaration: MethodDeclaration = {
         .body(Either::Left(Some(Statement::Block(block))))
         .build()
     },
-    "prot" "static" "fn" <id:Identifier> "(" <args:ParmeterList> ")" <block:Block> => {
+    "prot" "static" "fn" <id:Identifier> "(" <args:ParmeterList> ")" "{" <block:Statements> "}" => {
         MethodDeclarationBuilder::new()
         .is_static(true)
         .name(id)
@@ -867,7 +823,7 @@ MethodDeclaration: MethodDeclaration = {
         .body(Either::Left(Some(Statement::Block(block))))
         .build()
     },
-    "static" "fn" <id:Identifier> "(" <args:ParmeterList> ")" <block:Block> => {
+    "static" "fn" <id:Identifier> "(" <args:ParmeterList> ")" "{" <block:Statements> "}" => {
         MethodDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Private)
@@ -876,7 +832,7 @@ MethodDeclaration: MethodDeclaration = {
         .body(Either::Left(Some(Statement::Block(block))))
         .build()
     },
-    "pub" "static" "fn" <id:Identifier> "<" <typ:TypeParameters> ">" "(" <args:ParmeterList> ")" <ty:Type> <block:Block> => {
+    "pub" "static" "fn" <id:Identifier> "<" <typ:TypeParameters> ">" "(" <args:ParmeterList> ")" <ty:Type> "{" <block:Statements> "}" => {
         MethodDeclarationBuilder::new()
         .name(id)
         .is_static(true)
@@ -887,7 +843,7 @@ MethodDeclaration: MethodDeclaration = {
         .body(Either::Left(Some(Statement::Block(block))))
         .build()
     },
-    "prot" "static" "fn" <id:Identifier> "<" <typ:TypeParameters> ">" "(" <args:ParmeterList> ")" <ty:Type> <block:Block> => {
+    "prot" "static" "fn" <id:Identifier> "<" <typ:TypeParameters> ">" "(" <args:ParmeterList> ")" <ty:Type> "{" <block:Statements> "}" => {
         MethodDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Protected)
@@ -898,7 +854,7 @@ MethodDeclaration: MethodDeclaration = {
         .body(Either::Left(Some(Statement::Block(block))))
         .build()
     },
-    "static" "fn" <id:Identifier> "<" <typ:TypeParameters> ">" "(" <args:ParmeterList> ")" <ty:Type> <block:Block> => {
+    "static" "fn" <id:Identifier> "<" <typ:TypeParameters> ">" "(" <args:ParmeterList> ")" <ty:Type> "{" <block:Statements> "}" => {
         MethodDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Private)
@@ -909,7 +865,7 @@ MethodDeclaration: MethodDeclaration = {
         .is_static(true)
         .build()
     },
-    "pub" "static" "fn" <id:Identifier> "<" <typ:TypeParameters> ">" "(" <args:ParmeterList> ")" <block:Block> => {
+    "pub" "static" "fn" <id:Identifier> "<" <typ:TypeParameters> ">" "(" <args:ParmeterList> ")" "{" <block:Statements> "}" => {
         MethodDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Public)
@@ -919,7 +875,7 @@ MethodDeclaration: MethodDeclaration = {
         .is_static(true)
         .build()
     },
-    "prot" "static" "fn" <id:Identifier> "<" <typ:TypeParameters> ">" "(" <args:ParmeterList> ")" <block:Block> => {
+    "prot" "static" "fn" <id:Identifier> "<" <typ:TypeParameters> ">" "(" <args:ParmeterList> ")" "{" <block:Statements> "}" => {
         MethodDeclarationBuilder::new()
         .name(id)
         .is_static(true)
@@ -929,7 +885,7 @@ MethodDeclaration: MethodDeclaration = {
         .body(Either::Left(Some(Statement::Block(block))))
         .build()
     },
-    "static" "fn" <id:Identifier> "<" <typ:TypeParameters> ">" "(" <args:ParmeterList> ")" <block:Block> => {
+    "static" "fn" <id:Identifier> "<" <typ:TypeParameters> ">" "(" <args:ParmeterList> ")" "{" <block:Statements> "}" => {
         MethodDeclarationBuilder::new()
         .name(id)
         .visibility(Visibility::Private)
@@ -1406,7 +1362,7 @@ Parameter: Parameter = {
 
 #[inline]
 Statements: Vec<Statement> = {
-    <mut list:Statements*> => {
+    <mut list:Statements+> => {
         list
     }
 };
@@ -1426,6 +1382,7 @@ Statement: Statement = {
     <ife:IfExpression> => Statement::If(ife),
 };
 
+#[inline]
 Block: Vec<Statement> = {
     "{" <stmts:Statements> "}" => stmts,
 };

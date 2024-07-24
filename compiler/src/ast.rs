@@ -76,6 +76,12 @@ impl SuperClass {
     }
 }
 
+pub enum Declaration {
+    Field(Field),
+    Method(MethodDeclaration),
+    Class(ClassDeclaration),
+}
+
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct ClassDeclaration {
     visibility: Visibility,
@@ -84,9 +90,7 @@ pub struct ClassDeclaration {
     type_parameters: Vec<TypeParameter>,
     super_class: Option<SuperClass>,
     interfaces: Vec<SuperClass>,
-    fields: Vec<Field>,
-    methods: Vec<MethodDeclaration>,
-    sub_classes: Vec<ClassDeclaration>,
+    decs: Vec<Declaration>,
 }
 
 impl ClassDeclaration {
@@ -97,9 +101,7 @@ impl ClassDeclaration {
         type_parameters: Vec<TypeParameter>,
         super_class: Option<SuperClass>,
         interfaces: Vec<SuperClass>,
-        fields: Vec<Field>,
-        methods: Vec<MethodDeclaration>,
-        sub_classes: Vec<ClassDeclaration>,
+        decs: Vec<Declaration>,
     ) -> Self {
         Self {
             visibility,
@@ -108,9 +110,7 @@ impl ClassDeclaration {
             type_parameters,
             super_class,
             interfaces,
-            fields,
-            methods,
-            sub_classes,
+            decs,
         }
     }
 }
@@ -122,9 +122,7 @@ pub struct ClassDeclarationBuilder {
     type_parameters: Vec<TypeParameter>,
     super_class: Option<SuperClass>,
     interfaces: Vec<SuperClass>,
-    fields: Vec<Field>,
-    methods: Vec<MethodDeclaration>,
-    sub_classes: Vec<ClassDeclaration>,
+    decs: Vec<Declaration>,
 }
 
 impl ClassDeclarationBuilder {
@@ -136,9 +134,7 @@ impl ClassDeclarationBuilder {
             type_parameters: Vec::new(),
             super_class: None,
             interfaces: Vec::new(),
-            fields: Vec::new(),
-            methods: Vec::new(),
-            sub_classes: Vec::new(),
+            decs: Vec::new(),
         }
     }
 
@@ -167,15 +163,9 @@ impl ClassDeclarationBuilder {
         self
     }
 
-    pub fn fields(mut self, fields: Vec<Field>) -> Self {
-        self.fields = fields;
+    pub fn decs(mut self, decs: Vec<Declaration>) -> Self {
+        self.decs = decs;
         self
-    }
-
-    pub fn methods(mut self, methods: Vec<MethodDeclaration>) -> Self {
-        self.methods = methods;
-        self
-    }
 
     pub fn sub_classes(mut self, sub_classes: Vec<ClassDeclaration>) -> Self {
         self.sub_classes = sub_classes;
@@ -195,9 +185,7 @@ impl ClassDeclarationBuilder {
             type_parameters: self.type_parameters,
             super_class: self.super_class,
             interfaces: self.interfaces,
-            fields: self.fields,
-            methods: self.methods,
-            sub_classes: self.sub_classes,
+            decs: self.decs,
         }
     }
 }
