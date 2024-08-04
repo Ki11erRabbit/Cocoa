@@ -69,6 +69,10 @@ impl ObjectTable {
         self.vtables[class_ref as usize]
     }
 
+    pub fn get_method(&self, method_ref: Reference) -> Method {
+        self.method_table[method_ref as usize].clone()
+    }
+
     pub fn generate_layout_for_object(&self, class_ref: Reference) -> std::alloc::Layout {
         let class = self.classes[class_ref as usize];
         let class = unsafe { &*class };
