@@ -35,6 +35,7 @@ pub enum PoolEntry {
     F64(f64),
     Char(char),
     String(String),
+    Symbol(String),
     ClassInfo(ClassInfo),
     Method(Method),
     TypeInfo(TypeInfo),
@@ -84,8 +85,6 @@ pub struct FieldInfo {
     pub name: PoolIndex,
     pub flags: FieldFlags,
     pub type_info: PoolIndex,
-    /// The location of the field's value in the object
-    pub location: Option<PoolIndex>,
 }
 
 impl FieldInfo {
@@ -147,7 +146,7 @@ pub struct ClassHeader {
     pub parent_info: PoolIndex,
     pub class_flags: ClassFlags,
     pub constant_pool: Vec<PoolEntry>,
-    pub interfaces: Vec<InterfaceInfo>,
+    pub interfaces: Vec<PoolIndex>,
     pub fields: Vec<FieldInfo>,
     pub methods: Vec<MethodInfo>,
     pub strings: Vec<PoolIndex>,
@@ -158,7 +157,7 @@ impl ClassHeader {
         let mut constant_pool = Vec::with_capacity(constant_pool_size);
         constant_pool.resize_with(constant_pool_size, || PoolEntry::U8(0));
         let mut interfaces = Vec::with_capacity(interfaces_count);
-        interfaces.resize_with(interfaces_count, || InterfaceInfo::default());
+        interfaces.resize_with(interfaces_count, || 0);
         let mut fields = Vec::with_capacity(fields_count);
         fields.resize_with(fields_count, || FieldInfo {
             name: 0,
@@ -186,6 +185,30 @@ impl ClassHeader {
             fields,
             methods,
             strings,
+        }
+    }
+    
+    pub fn get_parent_name(&self) -> &String {
+        match &self.constant_pool[self.parent_info] {
+            PoolEntry::ClassInfo(class_info) => {
+                match &self.constant_pool[class_info.name] {
+                    PoolEntry::String(name) => name,
+                    _ => panic!("Invalid class name"),
+                }
+            }
+            _ => panic!("Invalid class info"),
+        }
+    }
+    
+    pub fn get_this_name(&self) -> &String {
+        match &self.constant_pool[self.this_info] {
+            PoolEntry::ClassInfo(class_info) => {
+                match &self.constant_pool[class_info.name] {
+                    PoolEntry::String(name) => name,
+                    _ => panic!("Invalid class name"),
+                }
+            }
+            _ => panic!("Invalid class info"),
         }
     }
 

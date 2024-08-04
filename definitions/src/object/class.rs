@@ -1,32 +1,58 @@
-use crate::class::{ClassFlags, ClassHeader, FieldInfo, MethodInfo, PoolEntry, PoolIndex};
+use crate::class::{self, ClassFlags, ClassHeader, FieldInfo, PoolEntry, PoolIndex};
 
 use super::Reference;
 
-
+pub struct PartiallyLoadedClass {
+    pub this_info: PoolIndex,
+    pub parent_info: PoolIndex,
+    pub class_flags: ClassFlags,
+    pub constant_pool: Vec<PoolEntry>,
+    pub fields: Vec<FieldInfo>,
+    pub interfaces: Vec<PoolIndex>,
+    pub methods: Vec<class::MethodInfo>,
+    pub strings: Vec<PoolIndex>,
+}
 
 
 pub struct ClassObjectBody {
     parent_ref: Reference,
+    interface_refs: Vec<Reference>,
     this_info: PoolIndex,
     parent_info: PoolIndex,
     class_flags: ClassFlags,
     constant_pool: Vec<PoolEntry>,
-    static_fields: Vec<FieldInfo>,
-    instance_fields: Vec<FieldInfo>,
+    static_fields: Vec<StaticFieldInfo>,
+    instance_fields: Vec<InstanceFieldInfo>,
+    interfaces: Vec<PoolIndex>,
     methods: Vec<MethodInfo>,
     strings: Vec<PoolIndex>,
 }
 
 impl ClassObjectBody {
-    pub fn new(this_info: PoolIndex, parent_info: PoolIndex, class_flags: ClassFlags, constant_pool: Vec<PoolEntry>, static_fields: Vec<FieldInfo>, instance_fields: Vec<FieldInfo>, methods: Vec<MethodInfo>, strings: Vec<PoolIndex>) -> ClassObjectBody {
+
+    pub fn new(
+        parent_ref: Reference,
+        interface_refs: Vec<Reference>,
+        this_info: PoolIndex,
+        parent_info: PoolIndex,
+        class_flags: ClassFlags,
+        constant_pool: Vec<PoolEntry>,
+        static_fields: Vec<FieldInfo>,
+        instance_fields: Vec<FieldInfo>,
+        interfaces: Vec<PoolIndex>,
+        methods: Vec<MethodInfo>,
+        strings: Vec<PoolIndex>
+    ) -> Self {
         ClassObjectBody {
-            parent_ref: 0,
+            parent_ref,
+            interface_refs,
             this_info,
             parent_info,
             class_flags,
             constant_pool,
             static_fields,
             instance_fields,
+            interfaces,
             methods,
             strings,
         }
@@ -73,29 +99,3 @@ impl ClassObjectBody {
 }
 
 
-impl From<ClassHeader> for ClassObjectBody {
-    fn from(header: ClassHeader) -> Self {
-        let mut static_fields = Vec::new();
-        let mut instance_fields = Vec::new();
-
-        for field in header.fields.into_iter() {
-            if field.is_static() {
-                static_fields.push(field.clone());
-            } else {
-                instance_fields.push(field.clone());
-            }
-        }
-        
-        ClassObjectBody {
-            parent_ref: 0,
-            this_info: header.this_info,
-            parent_info: header.parent_info,
-            class_flags: header.class_flags,
-            constant_pool: header.constant_pool,
-            static_fields,
-            instance_fields,
-            methods: header.methods,
-            strings: header.strings,
-        }
-    }
-}

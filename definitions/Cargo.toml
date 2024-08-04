@@ -12,3 +12,4 @@ crate-type = ["rlib"]
 
 [dependencies]
 bitflags = "2.6.0"
+petgraph = "0.6.5"

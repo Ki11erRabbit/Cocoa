@@ -1,6 +1,8 @@
-use crate::class::Method;
+use std::collections::HashMap;
 
-use super::{class::ClassObjectBody, ArrayObjectBody, NormalObjectBody, Object, Reference, VTable, Deallocate};
+use crate::class::{ClassHeader, Method, PoolEntry};
+
+use super::{class::{ClassObjectBody, PartiallyLoadedClass}, ArrayObjectBody, Deallocate, NormalObjectBody, Object, Reference, VTable};
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub enum GCMark {
@@ -38,6 +40,7 @@ pub struct ObjectTable {
     classes: Vec<*mut ClassObjectBody>,
     vtables: Vec<*const VTable>,
     method_table: Vec<Method>,
+    symbol_table: Vec<String>,
 }
 
 impl ObjectTable {
@@ -48,6 +51,7 @@ impl ObjectTable {
             classes: Vec::new(),
             vtables: Vec::new(),
             method_table,
+            symbol_table: Vec::new(),
         }
     }
 
@@ -73,7 +77,83 @@ impl ObjectTable {
         self.method_table[method_ref as usize].clone()
     }
 
-    pub fn generate_layout_for_object(&self, class_ref: Reference) -> std::alloc::Layout {
+    pub fn load_class(&mut self, class: ClassHeader, mapper: &mut dyn Mapper) -> Result<Reference, PartiallyLoadedClass> {
+        let ClassHeader { this_info, parent_info, class_flags, constant_pool, interfaces, fields, methods, strings } = class;
+
+        let PoolEntry::ClassInfo(parent_class) = &constant_pool[parent_info] else {
+            panic!("Invalid parent class reference");
+        };
+        let PoolEntry::Symbol(parent_name) = &constant_pool[parent_class.name] else {
+            panic!("Invalid parent class name");
+        };
+
+        if !mapper.contains_symbol(parent_name) {
+            return Err(PartiallyLoadedClass {
+                this_info,
+                parent_info,
+                class_flags,
+                constant_pool,
+                interfaces,
+                fields,
+                methods,
+                strings,
+            });
+        }
+
+        for interfaces_index in interfaces.iter() {
+            let PoolEntry::ClassInfo(parent_class) = &constant_pool[interfaces_index] else {
+                panic!("Invalid parent class reference");
+            };
+            let PoolEntry::Symbol(parent_name) = &constant_pool[parent_class.name] else {
+                panic!("Invalid parent class name");
+            };
+
+            if !mapper.contains_symbol(parent_name) {
+                return Err(PartiallyLoadedClass {
+                    this_info,
+                    parent_info,
+                    class_flags,
+                    constant_pool,
+                    interfaces,
+                    fields,
+                    methods,
+                    strings,
+                });
+            }
+        }
+        
+        let mut new_constant_pool = Vec::new();
+        for entry in constant_pool {
+            if let PoolEntry::Symbol(sym) = entry {
+                if !mapper.contains_symbol(&sym) {
+                    self.symbol_table.push(sym.clone());
+                    let index = self.symbol_table.len() - 1;
+                    mapper.insert(sym, index);
+                    new_constant_pool.push(PoolEntry::Reference(index));
+                } else {
+                    new_constant_pool.push(PoolEntry::Reference(mapper.get_symbol(&sym).expect("Symbol not found").clone()));
+                }
+            } else {
+                new_constant_pool.push(entry);
+            }
+        }
+
+        for method in methods.iter_mut() {
+            
+        }
+        
+        
+        
+        
+        Ok(9)
+    }
+
+    pub fn load_partially_loaded_class(&mut self, class: ClassHeader) -> Result<Reference, PartiallyLoadedClass> {
+        
+    }
+
+    #[inline]
+    pub fn generate_size_for_object(&self, class_ref: Reference) -> usize {
         let class = self.classes[class_ref as usize];
         let class = unsafe { &*class };
         let mut size = class.get_instance_fields().len();
@@ -84,6 +164,12 @@ impl ObjectTable {
             size += parent.get_instance_fields().len();
             parent_ref = parent.get_parent_ref();
         }
+
+        size
+    }
+    
+    pub fn generate_layout_for_object(&self, class_ref: Reference) -> std::alloc::Layout {
+        let size = self.generate_size_for_object(class_ref);
 
         std::alloc::Layout::array::<u64>(size).expect("Layout Overflowed")
     }

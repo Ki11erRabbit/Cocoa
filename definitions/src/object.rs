@@ -3,7 +3,6 @@ pub mod object_table;
 pub mod class;
 
 
-use crate::class::PoolIndex;
 
 pub type Reference = usize;
 
@@ -12,13 +11,7 @@ pub trait Deallocate {
 }
 
 
-pub struct VTable(Box<[PoolIndex]>);
-
-impl VTable {
-    pub fn new(table: Vec<PoolIndex>) -> VTable {
-        VTable(table.into_boxed_slice())
-    }
-}
+pub type VTable = [Reference];
 
 
 
