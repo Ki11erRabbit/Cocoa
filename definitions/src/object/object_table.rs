@@ -1,3 +1,5 @@
+use crate::class::Method;
+
 use super::{class::ClassObjectBody, ArrayObjectBody, NormalObjectBody, Object, Reference, VTable, Deallocate};
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
@@ -35,16 +37,36 @@ pub struct ObjectTable {
     object_data: Vec<ObjectDataHeader>,
     classes: Vec<*mut ClassObjectBody>,
     vtables: Vec<*const VTable>,
+    method_table: Vec<Method>,
 }
 
 impl ObjectTable {
-    pub fn new() -> ObjectTable {
+    pub fn new(method_table: Vec<Method>) -> ObjectTable {
         ObjectTable {
             objects: Vec::new(),
             object_data: Vec::new(),
             classes: Vec::new(),
             vtables: Vec::new(),
+            method_table,
         }
+    }
+
+    pub fn get_object(&self, reference: Reference) -> Option<*mut Object> {
+        match self.objects[reference as usize] {
+            ObjectTableHeader::Live { object, .. } => Some(object),
+            ObjectTableHeader::Dead => None,
+        }
+    }
+
+    pub fn get_object_data(&self, reference: Reference) -> Option<ObjectDataHeader> {
+        match self.object_data[reference as usize] {
+            ObjectDataHeader::Dead => None,
+            data => Some(data),
+        }
+    }
+
+    pub fn get_vtable(&self, class_ref: Reference) -> *const VTable {
+        self.vtables[class_ref as usize]
     }
 
     pub fn generate_layout_for_object(&self, class_ref: Reference) -> std::alloc::Layout {

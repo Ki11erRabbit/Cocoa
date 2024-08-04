@@ -1,4 +1,6 @@
 
+use std::sync::Arc;
+
 use crate::{bytecode::{Bytecode, MethodIndex}, object::Reference};
 
 
@@ -50,8 +52,7 @@ pub struct ClassInfo {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Method {
     Native(NativeMethodIndex),
-    Bytecode(Box<[Bytecode]>),
-    Foreign(MethodIndex),
+    Bytecode(Arc<[Bytecode]>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
