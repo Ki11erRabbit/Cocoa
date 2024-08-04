@@ -6,6 +6,7 @@ use super::Reference;
 
 
 pub struct ClassObjectBody {
+    parent_ref: Reference,
     this_info: PoolIndex,
     parent_info: PoolIndex,
     class_flags: ClassFlags,
@@ -19,6 +20,7 @@ pub struct ClassObjectBody {
 impl ClassObjectBody {
     pub fn new(this_info: PoolIndex, parent_info: PoolIndex, class_flags: ClassFlags, constant_pool: Vec<PoolEntry>, static_fields: Vec<FieldInfo>, instance_fields: Vec<FieldInfo>, methods: Vec<MethodInfo>, strings: Vec<PoolIndex>) -> ClassObjectBody {
         ClassObjectBody {
+            parent_ref: 0,
             this_info,
             parent_info,
             class_flags,
@@ -28,6 +30,13 @@ impl ClassObjectBody {
             methods,
             strings,
         }
+    }
+
+    pub fn get_parent_ref(&self) -> Reference {
+        self.parent_ref
+    }
+    pub fn set_parent_ref(&mut self, parent_ref: Reference) {
+        self.parent_ref = parent_ref;
     }
 
     pub fn get_this_info(&self) -> PoolIndex {
@@ -78,6 +87,7 @@ impl From<ClassHeader> for ClassObjectBody {
         }
         
         ClassObjectBody {
+            parent_ref: 0,
             this_info: header.this_info,
             parent_info: header.parent_info,
             class_flags: header.class_flags,

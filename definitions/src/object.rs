@@ -23,12 +23,12 @@ impl VTable {
 
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
-struct Object {
-    vtable: Reference,
-    super_vtable: Reference,
-    class_ref: Reference,
-    interfaces: Reference,
-    data_ref: Reference,
+pub struct Object {
+    pub vtable: Reference,
+    pub super_vtable: Reference,
+    pub class_ref: Reference,
+    pub interfaces: Reference,
+    pub data_ref: Reference,
 }
 
 impl Object {
@@ -73,7 +73,7 @@ impl Deallocate for Object {
     }
 }
 
-struct NormalObjectBody {}
+pub struct NormalObjectBody {}
 
 impl NormalObjectBody {
     pub fn new(member_count: usize) -> *mut Self {
@@ -124,15 +124,17 @@ impl Deallocate for NormalObjectBody {
     }
 }
 
-struct ArrayObjectBody {}
+pub struct ArrayObjectBody {}
 
 impl ArrayObjectBody {
     pub fn new(len: usize, elem_size: usize) -> *mut Self {
         use std::alloc::*;
         let len_member = Layout::new::<u64>();
+        let elem_member = Layout::new::<u64>();
         let body = Layout::array::<u8>(len * elem_size).expect("Layout Overflowed");
 
-        let (layout, _) = len_member.extend(body).expect("Layout Overflowed");
+        let (layout, _) = len_member.extend(elem_member).expect("Layout Overflowed");
+        let (layout, _) = layout.extend(body).expect("Layout Overflowed");
 
         let ptr = unsafe { alloc(layout) };
 
@@ -153,7 +155,7 @@ impl ArrayObjectBody {
         let this = self as *const Self;
         let this = this as *const u64;
 
-        let this = this.add(mem::size_of::<u64>());
+        let this = this.add(mem::size_of::<u64>() * 2);
         let this = this as *const T;
 
         let this = this.add(index);
@@ -169,7 +171,7 @@ impl ArrayObjectBody {
         let this = self as *mut Self;
         let this = this as *mut u64;
 
-        let this = this.add(mem::size_of::<u64>());
+        let this = this.add(mem::size_of::<u64>() * 2);
         let this = this as *mut T;
         let this = this.add(index);
 
@@ -182,6 +184,15 @@ impl ArrayObjectBody {
 
         unsafe {
             this.read()
+        }
+    }
+
+    pub fn elem_size(&self) -> u64 {
+        let this = self as *const Self;
+        let this = this as *const u64;
+
+        unsafe {
+            this.add(1).read()
         }
     }
 }
