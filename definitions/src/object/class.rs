@@ -1,4 +1,4 @@
-use crate::class::{self, ClassFlags, ClassHeader, FieldInfo, PoolEntry, PoolIndex};
+use crate::class::{self, ClassFlags, ClassHeader, FieldFlags, FieldInfo, MethodFlags, PoolEntry, PoolIndex};
 
 use super::Reference;
 
@@ -13,6 +13,25 @@ pub struct PartiallyLoadedClass {
     pub strings: Vec<PoolIndex>,
 }
 
+pub struct StaticFieldInfo {
+    pub name: PoolIndex,
+    pub flags: FieldFlags,
+    pub type_info: PoolIndex,
+    pub location: Reference,
+}
+
+pub struct InstanceFieldInfo {
+    pub name: PoolIndex,
+    pub flags: FieldFlags,
+    pub type_info: PoolIndex,
+}
+
+pub struct MethodInfo {
+    pub flags: MethodFlags,
+    pub name: PoolIndex,
+    pub type_info: PoolIndex,
+    pub location: Reference,
+}
 
 pub struct ClassObjectBody {
     parent_ref: Reference,

@@ -1,8 +1,29 @@
 use std::collections::HashMap;
 
-use crate::class::{ClassHeader, Method, PoolEntry};
+use crate::class::{self, ClassHeader, Method, PoolEntry, TypeInfo};
 
-use super::{class::{ClassObjectBody, PartiallyLoadedClass}, ArrayObjectBody, Deallocate, NormalObjectBody, Object, Reference, VTable};
+use super::{class::{ClassObjectBody, MethodInfo, PartiallyLoadedClass, StaticFieldInfo}, ArrayObjectBody, Deallocate, NormalObjectBody, Object, Reference, VTable};
+
+pub trait Mapper {
+    fn contains_symbol(&self, symbol: &str) -> bool;
+    fn get_symbol(&self, symbol: &str) -> Option<Reference>;
+    fn insert_symbol(&mut self, symbol: String, index: Reference);
+}
+
+impl Mapper for HashMap<String, Reference> {
+    fn contains_symbol(&self, symbol: &str) -> bool {
+        self.contains_key(symbol)
+    }
+
+    fn get_symbol(&self, symbol: &str) -> Option<Reference> {
+        self.get(symbol).copied()
+    }
+
+    fn insert_symbol(&mut self, symbol: String, index: Reference) {
+        self.insert(symbol, index);
+    }
+}
+
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub enum GCMark {
@@ -101,7 +122,7 @@ impl ObjectTable {
         }
 
         for interfaces_index in interfaces.iter() {
-            let PoolEntry::ClassInfo(parent_class) = &constant_pool[interfaces_index] else {
+            let PoolEntry::ClassInfo(parent_class) = &constant_pool[*interfaces_index] else {
                 panic!("Invalid parent class reference");
             };
             let PoolEntry::Symbol(parent_name) = &constant_pool[parent_class.name] else {
@@ -128,7 +149,7 @@ impl ObjectTable {
                 if !mapper.contains_symbol(&sym) {
                     self.symbol_table.push(sym.clone());
                     let index = self.symbol_table.len() - 1;
-                    mapper.insert(sym, index);
+                    mapper.insert_symbol(sym, index);
                     new_constant_pool.push(PoolEntry::Reference(index));
                 } else {
                     new_constant_pool.push(PoolEntry::Reference(mapper.get_symbol(&sym).expect("Symbol not found").clone()));
@@ -138,11 +159,70 @@ impl ObjectTable {
             }
         }
 
-        for method in methods.iter_mut() {
+        let mut new_methods = Vec::new();
+
+        for method in methods {
+            let class::MethodInfo { flags, name, type_info, location } = method;
+
+
+            let mut blank = PoolEntry::Blank;
+
+            std::mem::swap(&mut new_constant_pool[location], &mut blank);
+
+            let PoolEntry::Method(method) = blank else {
+                panic!("Invalid method reference");
+            };
             
+            self.method_table.push(method);
+            let ref_index = self.method_table.len() - 1;
+
+            new_methods.push(MethodInfo {
+                flags,
+                name,
+                type_info,
+                location: ref_index,
+            });
         }
         
-        
+        let mut static_fields = Vec::new();
+        let mut instance_fields = Vec::new();
+
+        for field in fields {
+            if field.is_static() {
+                let class::FieldInfo { name, flags, type_info } = field;
+                let type_info = match &constant_pool[type_info] {
+                    PoolEntry::TypeInfo(type_info) => type_info.clone(),
+                    _ => panic!("Invalid type info"),
+                };
+                let constant = match type_info {
+                    TypeInfo::U8 => PoolEntry::U8(0),
+                    TypeInfo::U16 => PoolEntry::U16(0),
+                    TypeInfo::U32 => PoolEntry::U32(0),
+                    TypeInfo::U64 => PoolEntry::U64(0),
+                    TypeInfo::I8 => PoolEntry::I8(0),
+                    TypeInfo::I16 => PoolEntry::I16(0),
+                    TypeInfo::I32 => PoolEntry::I32(0),
+                    TypeInfo::I64 => PoolEntry::I64(0),
+                    TypeInfo::F32 => PoolEntry::F32(0.0),
+                    TypeInfo::F64 => PoolEntry::F64(0.0),
+                    TypeInfo::Bool => PoolEntry::I8(0),
+                    TypeInfo::Char => PoolEntry::Char(' '),
+                    TypeInfo::String => PoolEntry::Reference(0),
+                    TypeInfo::Array(_) => PoolEntry::Reference(0),
+                    TypeInfo::Object(_) => PoolEntry::Reference(0),
+                    TypeInfo::Method { args, ret } => PoolEntry::Reference(0),
+                };
+                
+                static_fields.push(StaticFieldInfo {
+                    name,
+                    flags,
+                    type_info,
+                    location: None,
+                });
+            } else {
+                instance_fields.push(field);
+            }
+        }
         
         
         Ok(9)
