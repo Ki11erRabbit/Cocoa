@@ -1,15 +1,9 @@
 [workspace]
 
-members = [ "compiler",
-    "definitions", 
-    "interpreter"
+members = [ 
     ]
 
-
-[profile.release]
-debug = true
 
 
 
 [workspace.dependencies]
-definitions = { path = "./definitions" }
