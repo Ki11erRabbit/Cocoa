@@ -69,7 +69,10 @@ where `TypeInfo` is one of
 ### Function Table
 The function table is as follows in binary:
 ```
-[FunctionEntry]
+FunctionTable {
+ length: u64,
+ table: [FunctionEntry],
+}
 ```
 where a function entry is:
 ```
@@ -83,3 +86,40 @@ FunctionEntry {
 ```
 
 ### Class Table
+The class table is as follows in binary:
+```
+ClassTable {
+ length: u64,
+ table: [Class],
+}
+```
+where a `Class` is as follows:
+```
+Class {
+ name: u64,            // Symbol index in constant pool
+ symbolName: u64,      // If not monomorphized then this is the same as name
+ parentName: u64,      // Symbol index in constant pool
+ parentSymbolName: u64,// If not monomorphized then this is the same as parentName
+ fieldCount: u32,      // Amount of fields
+ fieldInfo: [FieldInfo],
+ methodCount: u32,
+ methods: [MethodInfo],
+}
+```
+where `FieldInfo` is
+```
+FieldInfo {
+ name: u64,
+ typeInfo: u64,
+}
+```
+where `MethodInfo` is
+```
+MethodInfo {
+ name: u64,
+ symbolName: u64,
+ typeInfo: u64,
+ codeLength: u64,
+ code: [u8],
+}
+```
