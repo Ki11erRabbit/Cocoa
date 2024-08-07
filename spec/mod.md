@@ -18,4 +18,68 @@ Module files contain the following data structures:
   * Holds the interface definition
 * Interface Impl Table
   * Holds the various implementations of interfaces following the orphan rule
-* 
+ 
+### Constant Pool
+The structure is as follows in binary
+```
+length: u64,
+pool: [Entry],
+```
+Where an `Entry` is in the form of
+```
+tag: u8,
+item: Item
+```
+where `Item` is one
+```
+u8 : 0
+i8 : 1
+u16 : 2
+i16 : 3
+u32 : 4
+i32 : 5
+u64 : 6
+i64 : 7
+f32 : 8
+f64 : 9
+char = {
+ size : u8,
+ data : [u8],
+} : 10
+string = {
+ size : u64,
+ data : [u8],
+} : 11
+Symbol = string : 12
+TypeInfo : 13
+```
+where `TypeInfo` is one of
+```
+{
+ tag: u8
+}
+{
+ tag: u8
+ count: u8,
+ argType: [TypeInfo],
+ returnType: TypeInfo,
+}
+```
+
+### Function Table
+The function table is as follows in binary:
+```
+[FunctionEntry]
+```
+where a function entry is:
+```
+FunctionEntry {
+ name: u64,       // Symbol Index in constant pool
+ symbolName: u64, // If not monomorphized then this is the same as name
+ typeInfo: u64,   // TypeInfo index in constant pool
+ codeLength: u64,
+ bytecode: [u8],
+}
+```
+
+### Class Table
