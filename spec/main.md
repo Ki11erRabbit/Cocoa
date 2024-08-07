@@ -16,6 +16,9 @@ Everything split into Cocoa `.cocoa` files which contain a package declaration, 
 
 ## Features
 * Java-like single inheritance
+  * Abstract Classes
+  * Dynamic Dispatch
+  * Reflection
 * Interfaces
   * Can act as typeclasses
   * Implementation is decoupled from class instantiation but must follow orphan rule
@@ -23,3 +26,5 @@ Everything split into Cocoa `.cocoa` files which contain a package declaration, 
 * Signed and Unsigned integers
 * Generics are done through reification to allow primitives into generics
   * Generics can also be bounded by interfaces and superclasses
+* Lambda Expressions that can capture local variables without captures needing to be final
+* Operator overloading via interfaces
