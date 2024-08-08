@@ -25,8 +25,9 @@ Module files contain the following data structures:
   * Holds the various implementations of interfaces following the orphan rule
 * Location Table
   * Holds the line and column number of each bytecode instruction 
- 
-### Constant Pool
+
+### Binary Format
+#### Constant Pool
 The structure is as follows in binary
 ```
 length: u64,
@@ -73,7 +74,7 @@ where `TypeInfo` is one of
 }
 ```
 
-### Function Table
+#### Function Table
 The function table is as follows in binary:
 ```
 FunctionTable {
@@ -94,7 +95,7 @@ Function {
 }
 ```
 
-### Class Table
+#### Class Table
 The class table is as follows in binary:
 ```
 ClassTable {
@@ -136,7 +137,7 @@ MethodInfo {
  code: [u8],
 }
 ```
-### Enum Table
+#### Enum Table
 The enum table is as follows in binary:
 ```
 EnumTable {
@@ -163,7 +164,7 @@ EnumVariant {
  fields: [FieldInfo],
 }
 ```
-### Interface Table
+#### Interface Table
 The interface table is as follows in binary:
 ```
 InterfaceTable {
@@ -189,5 +190,37 @@ where GenericParameter is
 GenericParameter {
  name: u64,
  bound: u64,
+}
+```
+#### Interface Impl Table
+The interface table is as follows in binary:
+```
+InterfaceImpleTable {
+ length: u64,
+ table: [InterfaceImpl],
+}
+```
+where InterfaceImpl is
+```
+InterfaceImpl {
+ name: u64,
+ symbolName: u64,
+ methodCount: u32,
+ methods: [MethodInfo],
+}
+```
+#### Location Table
+The interface table is as follows in binary:
+```
+LocationTable {
+ length: u64,
+ table: [Locations],
+}
+```
+where Locations is
+```
+Locations {
+ length: u64,         // The length should be the same as the bytecode it is representing
+ locations: [(32,32)], 
 }
 ```
