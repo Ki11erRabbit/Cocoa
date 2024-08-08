@@ -14,10 +14,17 @@ Module files contain the following data structures:
   * This structure holds all classes that are declared in the module
   * This structure also gets emptied only when needed
   * This structure can be larger than the amount of classes declared in source due to monomorphization
+* Enum Table
+  * This structure holds the definitions of enums
+  * This structure also gets emptied but only when needed
+  * This structure can be larger than the amount of classes declared in the source due to monomorphization
+  * Under the hood these are just classes implemented with inheritance but treated separately so that a user cannot inherit from them.
 * Interface Table
   * Holds the interface definition
 * Interface Impl Table
   * Holds the various implementations of interfaces following the orphan rule
+* Location Table
+  * Holds the line and column number of each bytecode instruction 
  
 ### Constant Pool
 The structure is as follows in binary
@@ -71,15 +78,17 @@ The function table is as follows in binary:
 ```
 FunctionTable {
  length: u64,
- table: [FunctionEntry],
+ table: [Function],
 }
 ```
-where a function entry is:
+where a function is:
 ```
-FunctionEntry {
- name: u64,       // Symbol Index in constant pool
- symbolName: u64, // If not monomorphized then this is the same as name
- typeInfo: u64,   // TypeInfo index in constant pool
+Function {
+ name: u64,         // Symbol Index in constant pool
+ symbolName: u64,   // If not monomorphized then this is the same as name
+ typeInfo: u64,     // TypeInfo index in constant pool
+ locationIndex: u64,// Index into location table
+ flags: u8,
  codeLength: u64,
  bytecode: [u8],
 }
@@ -100,6 +109,7 @@ Class {
  symbolName: u64,      // If not monomorphized then this is the same as name
  parentName: u64,      // Symbol index in constant pool
  parentSymbolName: u64,// If not monomorphized then this is the same as parentName
+ flags: u8,
  fieldCount: u32,      // Amount of fields
  fieldInfo: [FieldInfo],
  methodCount: u32,
@@ -111,6 +121,7 @@ where `FieldInfo` is
 FieldInfo {
  name: u64,
  typeInfo: u64,
+ flags: u8,
 }
 ```
 where `MethodInfo` is
@@ -119,7 +130,64 @@ MethodInfo {
  name: u64,
  symbolName: u64,
  typeInfo: u64,
+ locationIndex: u64,
+ flags: u8,
  codeLength: u64,
  code: [u8],
+}
+```
+### Enum Table
+The enum table is as follows in binary:
+```
+EnumTable {
+ length: u64,
+ table: [Enum],
+}
+```
+where Enum is:
+```
+Enum {
+ name: u64,
+ symbolName: u64,
+ flags: u8,
+ variantsCount: u8,
+ variants: [EnumVariant],
+ methodCount: u32,
+ methods: [MethodInfo],
+}
+```
+where EnumVariant is:
+```
+EnumVariant {
+ fieldCount: u32,
+ fields: [FieldInfo],
+}
+```
+### Interface Table
+The interface table is as follows in binary:
+```
+InterfaceTable {
+ length: u64,
+ table: [Interface],
+}
+```
+where Interface is defined as
+```
+Interface {
+ name: u64,
+ parentNameCount: u64,
+ parentNames: [u64],
+ genericParameterCount: u32,
+ genericParameters: [GenericParameter],
+ flags: u8,
+ methodCount: u32,
+ methods: [MethodInfo],
+}
+```
+where GenericParameter is
+```
+GenericParameter {
+ name: u64,
+ bound: u64,
 }
 ```
