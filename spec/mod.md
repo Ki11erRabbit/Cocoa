@@ -10,19 +10,18 @@ Module files contain the following data structures:
 * Function Table
   * This structure holds all toplevel function definitions and their respective bytecode.
   * This structure gets emptied out when it gets loaded into the VM
-* Class Table
-  * This structure holds all classes that are declared in the module
+* Object Table
+  * This structure holds all objects that are declared in the module
   * This structure also gets emptied only when needed
-  * This structure can be larger than the amount of classes declared in source due to monomorphization
+  * This structure can be larger than the amount of objects declared in source due to monomorphization
 * Enum Table
   * This structure holds the definitions of enums
   * This structure also gets emptied but only when needed
-  * This structure can be larger than the amount of classes declared in the source due to monomorphization
-  * Under the hood these are just classes implemented with inheritance but treated separately so that a user cannot inherit from them.
-* Interface Table
-  * Holds the interface definition
-* Interface Impl Table
-  * Holds the various implementations of interfaces following the orphan rule
+  * These are tagged unions although since objects, each variant only takes up a pointer size
+* Trait Table
+  * Holds the trait definition
+* Trait Impl Table
+  * Holds the various implementations of traits following the orphan rule
 * Location Table
   * Holds the line and column number of each bytecode instruction 
 
@@ -95,21 +94,19 @@ Function {
 }
 ```
 
-#### Class Table
-The class table is as follows in binary:
+#### Object Table
+The object table is as follows in binary:
 ```
-ClassTable {
+ObjectTable {
  length: u64,
- table: [Class],
+ table: [Object],
 }
 ```
-where a `Class` is as follows:
+where a `Object` is as follows:
 ```
-Class {
+Object {
  name: u64,            // Symbol index in constant pool
  symbolName: u64,      // If not monomorphized then this is the same as name
- parentName: u64,      // Symbol index in constant pool
- parentSymbolName: u64,// If not monomorphized then this is the same as parentName
  flags: u8,
  fieldCount: u32,      // Amount of fields
  fieldInfo: [FieldInfo],
@@ -164,17 +161,17 @@ EnumVariant {
  fields: [FieldInfo],
 }
 ```
-#### Interface Table
-The interface table is as follows in binary:
+#### Trait Table
+The trait table is as follows in binary:
 ```
-InterfaceTable {
+TraitTable {
  length: u64,
  table: [Interface],
 }
 ```
-where Interface is defined as
+where Trait is defined as
 ```
-Interface {
+Trait {
  name: u64,
  parentNameCount: u64,
  parentNames: [u64],
@@ -192,17 +189,17 @@ GenericParameter {
  bound: u64,
 }
 ```
-#### Interface Impl Table
-The interface table is as follows in binary:
+#### Trait Impl Table
+The trait impl table is as follows in binary:
 ```
-InterfaceImpleTable {
+TraitImplTable {
  length: u64,
- table: [InterfaceImpl],
+ table: [TraitImpl],
 }
 ```
-where InterfaceImpl is
+where TraitImpl is
 ```
-InterfaceImpl {
+TraitImpl {
  name: u64,
  symbolName: u64,
  methodCount: u32,
