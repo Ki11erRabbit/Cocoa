@@ -36,6 +36,7 @@
 |Convert| u8 | ConvertedValue | Converts the top value on the stack to a type specified by the u8,This is the same as doing `as` in Rust|
 |BinaryConvert| u8 | ConvertedValue | Converts the top value on the stack to another type via its binary equivalence|
 |Goto| i64 | None | offsets the PC by the amount specified by i64|
+|Jump| None | None | Pops a i64 from the top of the stack and uses it to offset the PC|
 |If| i64 | None | Offsets the PC by the amount specified by i64 if the top value on the stack is 0|
 |IfNot| i64 | None | Offsets the PC by the amount specifed by i64 if the top value on the stack is not 0|
 |IfGreater| i64 | None | Offsets the PC by the amount specifed by i64 if the top value on the stack is 1 or greater|
@@ -52,6 +53,7 @@
 |ReturnUnit| None | None | Pops the current stack frame off, and pops the previous PC off of the operand stack and loads it.|
 |CreateObject| SymbolPointer | Reference | Uses the symbol pointer and the Argument List to construct a new object based off of the symbol|
 |CreateEnum| SymbolPointer | Reference | Uses the symbol pointer and the Argument List to construct a new enum object based off of the symbol|
+|IsA| PoolPointer| 0 if true, any other value if false| This checks if the top value on the stack is what the symbol pointed by the PoolPointer says it is| 
 |GetField| u64,u8 | Value | Offsets an object's data by the u64 and uses the u8 to figure out the type of the field|
 |SetField| u64,u8 | None | Offsets an object's data by the u64 and uses the u8 to set the correct type in the object|
 |CreateArray| u8 | Array | Creates an array by popping a u64 off of the stack for the size and uses the u8 for the type for the array|
