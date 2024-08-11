@@ -19,4 +19,5 @@
 |Division           |`1 / 2`                       |Simple division expression. Can be overloaded with `std::ops::Div` trait|
 |Modulo             |`1 % 2`                       |Simple modulo expression. Can be overloaded with `std::ops::Mod` trait|
 |Logical And        |`x && x < 3`                  |Simple logical and expression. Cannot be overloaded.|
-|Logical Or         |`x || x < 3`                  |Simple logical or expression. Cannot be overloaded.|
+|Logical Or         |`x \|\| x < 3`                |Simple logical or expression. Cannot be overloaded.|
+|Equal Expression   |`x == y`                      |Simple equal expression. Can be overloaded with `std::ops::Eq` trait|
