@@ -45,5 +45,21 @@
 |Try                |`x?`                          |Returns the current function if the datatype is a certain datatype, otherwise it provides a value. This is like how Haskell's `do` notation works. Can be overloaded with `std::ops::Try`|
 |Field Access       |`x.x`                         |Accesses a field from an object. Depending on left or right hand side, this either gets or sets the value.|
 |Call               |`foo(x, 3)`                   |Calls a function with arguments. Can be used with Field Access to call a method.|
+|Closure Expression |`|x, y| { x + y }`            |Creates an anonymous function that can capture local variables by value|
+|Index Operator     |`x[2]`                        |Indexes into a datatype. Setting and getting dependent on side of assignment expression. Can be overloaded with `std::ops::Index` trait.|
+|Cast               |`u8(33)`                      |Performs a conversion from one primitive type to another.|
+|Is                 |`x is List<u8>`               |Using reflection, checks if the type of an expression is that type.|
+|Struct Creation    |<pre>ArrayList { <br>&emsp;body,</br> <br>&emsp;length: 0,</br> <br>&emsp;capacity: 10,</br><br>}</br></pre>|Creates a struct with a specified type. Must be fully initialized.|
+|If                 |<pre>if x < 3 {<br>&emsp;//Do Something</br><br>} else {</br><br>&emsp;//Do Something Else</br><br>}</br></pre>|Evaluates a different body depending on condition. Can be chained with `else if`|
+|If Let             |<pre>if let Some(x) = x {<br>&emsp;//Do Something</br><br>} else {</br><br>&emsp;//Do Something Else</br><br>}</br></pre>|Pattern Matching if. If the pattern is matched then the internal value is bound and the body executed. Can also be chained.|
+|match              |<pre>match x {<br>&emsp;2 => //Do Something</br><br>&emsp;_ => //Match all</br><br>}</br></pre>|Pattern matching expression. Executes various code blocks or expressions depending on pattern|
+|Paren              |`2 * (4 + 10)`                |Simple paren expression. Changes precedence of expression.|
+|Tuple              |`(2, 'a')`                    |Tuple wrapping expression. Can be of 1 or more values of mixed types.|
 
 
+### Pattern (LValues)
+|Pattern           | Example               |Description                |
+|:-----------------|:----------------------|:--------------------------|
+|Simple            |`x`                    |Simple, binds only one value to one variable|
+|Tuple             |`(x, y)`               |Unpacks a tuple into variables|
+|Struct            |`Foo {x, y: j}`        |Unpacks a struct into variables|
