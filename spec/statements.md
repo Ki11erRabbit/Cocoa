@@ -45,7 +45,7 @@
 |Try                |`x?`                          |Returns the current function if the datatype is a certain datatype, otherwise it provides a value. This is like how Haskell's `do` notation works. Can be overloaded with `std::ops::Try`|
 |Field Access       |`x.x`                         |Accesses a field from an object. Depending on left or right hand side, this either gets or sets the value.|
 |Call               |`foo(x, 3)`                   |Calls a function with arguments. Can be used with Field Access to call a method.|
-|Closure Expression |`|x, y| { x + y }`            |Creates an anonymous function that can capture local variables by value|
+|Closure Expression |`\|x, y\| { x + y }`            |Creates an anonymous function that can capture local variables by value|
 |Index Operator     |`x[2]`                        |Indexes into a datatype. Setting and getting dependent on side of assignment expression. Can be overloaded with `std::ops::Index` trait.|
 |Cast               |`u8(33)`                      |Performs a conversion from one primitive type to another.|
 |Is                 |`x is List<u8>`               |Using reflection, checks if the type of an expression is that type.|
