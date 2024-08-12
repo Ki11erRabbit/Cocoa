@@ -23,6 +23,7 @@ pub struct SpannedToken<'a> {
 
 #[derive(Debug, PartialEq)]
 pub enum Token<'a> {
+    Label(&'a str),
     TypeIdentifier(&'a str),
     Identifier(&'a str),
     U8Lit(u8),
@@ -289,15 +290,23 @@ impl<'a> LexerIterator<'a> for Lexer<'a> {
                         }
                     },
                     '\'' => {
+                        let mut size = 0;
                         let mut found_backslash = false;
                         let mut the_char = None;
+                        let mut the_label = None;
+                        let mut found_closing_quote = false;
                         while let Some((i, c)) = self.input.next() {
-                            if c == '\'' && !found_backslash {
+                            if c == '\'' && !found_backslash && size == 1 {
                                 end = i;
+                                found_closing_quote = true;
                                 break;
-                            } else if c == '\\' {
+                            } else if !c.is_alphanumeric() && size > 1 {
+                                the_label = Some(Token::Label(&self.raw_input[start..=end]));
+                                the_char = None;
+                                break;
+                            } else if c == '\\' && size == 0 {
                                 found_backslash = true;
-                            } else if found_backslash {
+                            } else if found_backslash && size == 0 {
                                 found_backslash = false;
                                 match c {
                                     'n' => the_char = Some('\n'),
@@ -312,13 +321,20 @@ impl<'a> LexerIterator<'a> for Lexer<'a> {
                                     }),
                                 }
                             } else {
+                                size += 1;
                                 the_char = Some(c);
                             }
                         }
-                        match the_char {
-                            Some(c) => Token::CharLit(c),
-                            None => return Err(LexerError::Error {
+                        match (the_char, the_label) {
+                            (Some(c), None) => Token::CharLit(c),
+                            (None, Some(tok)) => tok,
+                            (None, None) if found_closing_quote => return Err(LexerError::Error {
                                 message: "Invalid character literal".to_string(),
+                                column: start,
+                                line: self.get_current_line(),
+                            }),
+                            _ => return Err(LexerError::Error {
+                                message: "Invalid Label".to_string(),
                                 column: start,
                                 line: self.get_current_line(),
                             }),
