@@ -117,13 +117,16 @@ impl Jit {
 
         unsafe {
             let func: fn() -> i64 = std::mem::transmute(code);
-            let _ = func();
+            let res = func();
+            println!("{}", res);
         }
 
         
     }
 
     fn compile(&mut self) -> Result<*const u8, String> {
+
+        self.ctx.func.signature.returns.push(AbiParam::new(types::I64));
 
         let mut builder = FunctionBuilder::new(&mut self.ctx.func, &mut self.builder_context);
         let entry_block = builder.create_block();

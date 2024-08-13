@@ -12,9 +12,9 @@ fn main() {
     }
 
     let filename = &args[1];
-    let source = std::fs::read_to_string(filename).unwrap();
+    let source = std::fs::read(filename).unwrap();
 
-    let mut source = source.into_bytes().into_iter();
+    let mut source = source.into_iter();
     let constant_pool = vm::ConstantPool::from_binary(&mut source);
     let bytecode = vm::get_bytecode(&mut source);
 

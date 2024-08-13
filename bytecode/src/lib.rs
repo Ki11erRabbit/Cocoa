@@ -200,7 +200,7 @@ impl Bytecode {
             Addi8 => 12,
             Addi16 => 13,
             Addi32 => 14,
-            Addi64t => 15,
+            Addi64 => 15,
             Subu8 => 16,
             Subu16 => 17,
             Subu32 => 18,
