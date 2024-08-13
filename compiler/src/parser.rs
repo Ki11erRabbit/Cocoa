@@ -25,7 +25,8 @@ impl<'a> Parser<'a> {
     }
 
     pub fn next(&mut self) -> ParseResult<SpannedToken> {
-        match self.tokens.next() {
+        let token = self.tokens.next();
+        match token {
             Some(token) => {
                 match token {
                     Ok(token) => Ok(token),
@@ -59,7 +60,6 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_statement(&mut self) -> ParseResult<SpannedStatement> {
-
         match self.parse_expression_for_statement() {
             None => {},
             Some(expr) => {
@@ -106,7 +106,6 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_expression(&mut self) -> ParseResult<SpannedExpression> {
-
 
         // TODO parse if expression
         // TODO parse return expression
@@ -165,12 +164,12 @@ impl<'a> Parser<'a> {
 
     fn parse_addition_expression(&mut self) -> ParseResult<SpannedExpression> {
         let expr1 = self.parse_multiplication_expression()?;
-        let op = match self.peek()? {
-            SpannedToken { token: Token::Add, .. } => {
+        let op = match self.peek() {
+            Ok(SpannedToken { token: Token::Add, .. }) => {
                 self.next()?;
                 BinaryOperator::Add
             }
-            SpannedToken { token: Token::Sub, .. } => {
+            Ok(SpannedToken { token: Token::Sub, .. }) => {
                 self.next()?;
                 BinaryOperator::Subtract
             }
@@ -197,16 +196,16 @@ impl<'a> Parser<'a> {
         //TODO parse multiplication expression
         let expr1 = self.parse_unary_expression()?;
 
-        let op = match self.peek()? {
-            SpannedToken { token: Token::Mul, .. } => {
+        let op = match self.peek() {
+            Ok(SpannedToken { token: Token::Mul, .. }) => {
                 self.next()?;
                 BinaryOperator::Multiply
             }
-            SpannedToken { token: Token::Div, .. } => {
+            Ok(SpannedToken { token: Token::Div, .. }) => {
                 self.next()?;
                 BinaryOperator::Divide
             }
-            SpannedToken { token: Token::Mod, .. } => {
+            Ok(SpannedToken { token: Token::Mod, .. }) => {
                 self.next()?;
                 BinaryOperator::Modulo
             }
@@ -229,10 +228,8 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_unary_expression(&mut self) -> ParseResult<SpannedExpression> {
-        //TODO parse unary expression
-
-        match self.peek()? {
-            SpannedToken { token: Token::Sub, ..} => {
+        match self.peek() {
+            Ok(SpannedToken { token: Token::Sub, ..}) => {
                 let SpannedToken { start, .. } = self.next()?;
                 let expression = self.parse_expression()?;
                 let end = expression.end;
@@ -246,7 +243,7 @@ impl<'a> Parser<'a> {
                     end,
                 })
             }
-            SpannedToken { token: Token::Not, ..} => {
+            Ok(SpannedToken { token: Token::Not, ..}) => {
                 let SpannedToken { start, .. } = self.next()?;
                 let expression = self.parse_expression()?;
                 let end = expression.end;

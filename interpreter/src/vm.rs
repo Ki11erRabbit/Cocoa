@@ -116,7 +116,7 @@ impl Jit {
         let code = self.compile().unwrap();
 
         unsafe {
-            let func: fn() -> () = std::mem::transmute(code);
+            let func: fn() -> i64 = std::mem::transmute(code);
             let _ = func();
         }
 
@@ -134,8 +134,6 @@ impl Jit {
         let mut trans = FunctionTranslator::new(builder, &mut self.module, &self.constants, &self.bytecode);
 
         trans.translate();
-
-        trans.builder.ins().return_(&[]);
 
         trans.builder.finalize();
 
@@ -504,18 +502,6 @@ impl<'a> FunctionTranslator<'a> {
                     let val1 = self.stack.pop().unwrap();
                     let val2 = self.stack.pop().unwrap();
                     let val = self.builder.ins().srem(val1, val2);
-                    self.stack.push(val);
-                }
-                Bytecode::Divf32 => {
-                    let val1 = self.stack.pop().unwrap();
-                    let val2 = self.stack.pop().unwrap();
-                    let val = self.builder.ins().fdiv(val1, val2);
-                    self.stack.push(val);
-                }
-                Bytecode::Divf64 => {
-                    let val1 = self.stack.pop().unwrap();
-                    let val2 = self.stack.pop().unwrap();
-                    let val = self.builder.ins().fdiv(val1, val2);
                     self.stack.push(val);
                 }
                 Bytecode::Andu8 => {
@@ -895,6 +881,13 @@ impl<'a> FunctionTranslator<'a> {
                     let val = self.stack.pop().unwrap();
                     let val = self.builder.ins().fneg(val);
                     self.stack.push(val);
+                }
+                Bytecode::Return => {
+                    let val = self.stack.pop().unwrap();
+                    self.builder.ins().return_(&[val]);
+                }
+                Bytecode::ReturnUnit => {
+                    self.builder.ins().return_(&[]);
                 }
                 _ => {
                     unimplemented!();

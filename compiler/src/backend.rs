@@ -203,6 +203,8 @@ impl StatementsCompiler {
             }
             Statement::HangingExpression(expr) => {
                 self.compile_expression(constant_pool, expr);
+                //TODO: Check that it is at the end of a function
+                self.bytecode.push(Bytecode::Return);
             }
         }
     }

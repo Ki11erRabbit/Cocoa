@@ -6,6 +6,7 @@ pub trait LexerIterator<'a> {
 
 pub type LexerResult<'a> = Result<SpannedToken<'a>, LexerError>;
 
+#[derive(Debug, PartialEq)]
 pub enum LexerError {
     Error {
         message: String,
