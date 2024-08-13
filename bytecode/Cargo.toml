@@ -1,7 +1,6 @@
 [package]
-name = "compiler"
+name = "bytecode"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bytecode = { workspace = true }

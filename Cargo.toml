@@ -1,9 +1,10 @@
 [workspace]
 
-members = ["compiler" 
+members = [ "bytecode","compiler" 
     ]
 
 
 
 
 [workspace.dependencies]
+bytecode = { path = "bytecode" }

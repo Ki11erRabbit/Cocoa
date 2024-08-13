@@ -1,7 +1,7 @@
 use std::str::CharIndices;
 
 pub trait LexerIterator<'a> {
-    fn next(&mut self) -> LexerResult<'a>;
+    fn next_token(&mut self) -> LexerResult<'a>;
 }
 
 pub type LexerResult<'a> = Result<SpannedToken<'a>, LexerError>;
@@ -15,6 +15,7 @@ pub enum LexerError {
     Eof,
 }
 
+#[derive(Debug, PartialEq)]
 pub struct SpannedToken<'a> {
     pub token: Token<'a>,
     pub start: usize,
@@ -122,9 +123,18 @@ impl<'a> Lexer<'a> {
     }
 }
 
+impl<'a> Iterator for Lexer<'a> {
+    type Item = LexerResult<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        Some(self.next_token())
+    }
+}
+
+
 impl<'a> LexerIterator<'a> for Lexer<'a> {
 
-    fn next(&mut self) -> LexerResult<'a> {
+    fn next_token(&mut self) -> LexerResult<'a> {
         let mut end;
         let start;
         let token = match self.input.next() {
@@ -197,7 +207,6 @@ impl<'a> LexerIterator<'a> for Lexer<'a> {
                     },
                     '0'..='9' => {
                         while let Some((i, c)) = self.input.peek() {
-                            println!("{}", c);
                             if c.is_digit(10) {
                                 end = *i;
                                 self.input.next();
@@ -420,7 +429,7 @@ impl<'a> LexerIterator<'a> for Lexer<'a> {
                                     break;
                                 }
                             }
-                            return self.next();
+                            return self.next_token();
                         } else if let Some((_, '*')) = self.input.peek() {
                             self.input.next();
                             while let Some((_, c)) = self.input.next() {
@@ -434,7 +443,7 @@ impl<'a> LexerIterator<'a> for Lexer<'a> {
                                     self.newline_pos.push(start);
                                 }
                             }
-                            return self.next();
+                            return self.next_token();
                         } else {
                             Token::Div
                         }
@@ -512,7 +521,7 @@ impl<'a> LexerIterator<'a> for Lexer<'a> {
                     },
                     '\n' => {
                         self.newline_pos.push(start);
-                        return self.next();
+                        return self.next_token();
                     },
                     c if c.is_whitespace() => {
                         while let Some((_, c)) = self.input.peek() {
@@ -521,7 +530,7 @@ impl<'a> LexerIterator<'a> for Lexer<'a> {
                             }
                             self.input.next();
                         }
-                        return self.next();
+                        return self.next_token();
                     },
                     c => return Err(LexerError::Error {
                         message: format!("Invalid character: {}", c),
@@ -548,7 +557,7 @@ mod test {
         let mut lexer = Lexer::new(input);
         let mut tokens = Vec::new();
         loop {
-            match lexer.next() {
+            match lexer.next_token() {
                 Ok(token) => tokens.push(token),
                 Err(LexerError::Eof) => break,
                 Err(LexerError::Error { message, column, line }) => {
@@ -576,7 +585,7 @@ mod test {
         let mut lexer = Lexer::new(input);
         let mut tokens = Vec::new();
         loop {
-            match lexer.next() {
+            match lexer.next_token() {
                 Ok(token) => tokens.push(token),
                 Err(LexerError::Eof) => break,
                 Err(LexerError::Error { message, column, line }) => {
@@ -605,7 +614,7 @@ mod test {
         let mut lexer = Lexer::new(input);
         let mut tokens = Vec::new();
         loop {
-            match lexer.next() {
+            match lexer.next_token() {
                 Ok(token) => tokens.push(token),
                 Err(LexerError::Eof) => break,
                 Err(LexerError::Error { message, column, line }) => {
@@ -631,7 +640,7 @@ mod test {
         let mut lexer = Lexer::new(input);
         let mut tokens = Vec::new();
         loop {
-            match lexer.next() {
+            match lexer.next_token() {
                 Ok(token) => tokens.push(token),
                 Err(LexerError::Eof) => break,
                 Err(LexerError::Error { message, column, line }) => {
@@ -658,7 +667,7 @@ mod test {
         let mut lexer = Lexer::new(input);
         let mut tokens = Vec::new();
         loop {
-            match lexer.next() {
+            match lexer.next_token() {
                 Ok(token) => tokens.push(token),
                 Err(LexerError::Eof) => break,
                 Err(LexerError::Error { message, column, line }) => {
@@ -686,7 +695,7 @@ mod test {
         let mut lexer = Lexer::new(input);
         let mut tokens = Vec::new();
         loop {
-            match lexer.next() {
+            match lexer.next_token() {
                 Ok(token) => tokens.push(token),
                 Err(LexerError::Eof) => break,
                 Err(LexerError::Error { message, column, line }) => {
@@ -714,7 +723,7 @@ mod test {
         let mut lexer = Lexer::new(input);
         let mut tokens = Vec::new();
         loop {
-            match lexer.next() {
+            match lexer.next_token() {
                 Ok(token) => tokens.push(token),
                 Err(LexerError::Eof) => break,
                 Err(LexerError::Error { message, column, line }) => {
