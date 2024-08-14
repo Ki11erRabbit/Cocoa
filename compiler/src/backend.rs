@@ -1,7 +1,9 @@
 
+use std::collections::HashMap;
+
 use bytecode::Bytecode;
 
-use crate::ast::{BinaryOperator, Expression, PrefixOperator, SpannedExpression, SpannedStatement, Statement};
+use crate::ast::{BinaryOperator, Expression, Pattern, PrefixOperator, SpannedExpression, SpannedPattern, SpannedStatement, Statement};
 
 
 pub trait IntoBinary {
@@ -24,6 +26,27 @@ pub enum Type {
     Str,
 }
 
+
+impl From<Value> for Type {
+    fn from(value: Value) -> Self {
+        match value {
+            Value::U8(_) => Type::U8,
+            Value::U16(_) => Type::U16,
+            Value::U32(_) => Type::U32,
+            Value::U64(_) => Type::U64,
+            Value::I8(_) => Type::I8,
+            Value::I16(_) => Type::I16,
+            Value::I32(_) => Type::I32,
+            Value::I64(_) => Type::I64,
+            Value::F32(_) => Type::F32,
+            Value::F64(_) => Type::F64,
+            Value::Char(_) => Type::Char,
+            Value::Object => Type::Object,
+            Value::Str => Type::Str,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum Value {
     U8(u8),
@@ -39,6 +62,26 @@ pub enum Value {
     Char(char),
     Object,
     Str,
+}
+
+impl From<Type> for Value {
+    fn from(ty: Type) -> Self {
+        match ty {
+            Type::U8 => Value::U8(0),
+            Type::U16 => Value::U16(0),
+            Type::U32 => Value::U32(0),
+            Type::U64 => Value::U64(0),
+            Type::I8 => Value::I8(0),
+            Type::I16 => Value::I16(0),
+            Type::I32 => Value::I32(0),
+            Type::I64 => Value::I64(0),
+            Type::F32 => Value::F32(0.0),
+            Type::F64 => Value::F64(0.0),
+            Type::Char => Value::Char('\0'),
+            Type::Object => Value::Object,
+            Type::Str => Value::Str,
+        }
+    }
 }
 
 impl IntoBinary for Value {
@@ -134,6 +177,8 @@ impl IntoBinary for ConstantPool {
 pub struct Frame {
     operands: Vec<Value>,
     locals: [Value; 256],
+    next_local: u8,
+    name_to_local: HashMap<String, u8>,
 }
 
 impl Frame {
@@ -141,6 +186,8 @@ impl Frame {
         Frame {
             operands: Vec::new(),
             locals: [Value::U8(0); 256],
+            next_local: 0,
+            name_to_local: HashMap::new(),
         }
     }
 
@@ -151,6 +198,19 @@ impl Frame {
     pub fn pop_value(&mut self) -> Value {
         self.operands.pop().unwrap()
     }
+
+    pub fn store_local(&mut self, name: &str, value: Value) -> u8 {
+        let local = self.next_local;
+        self.next_local += 1;
+        self.locals[local as usize] = value;
+        self.name_to_local.insert(name.to_string(), local);
+        local
+    }
+
+    pub fn load_local(&self, name: &str) -> (u8, Value) {
+        let local = self.name_to_local.get(name).unwrap();
+        (*local, self.locals[*local as usize])
+    }
 }
 
 pub struct Stack {
@@ -160,7 +220,7 @@ pub struct Stack {
 impl Stack {
     pub fn new() -> Self {
         Stack {
-            frames: Vec::new(),
+            frames: vec![Frame::new()],
         }
     }
 
@@ -196,6 +256,23 @@ impl StatementsCompiler {
         }
     }
 
+    fn bind_local(&mut self, name: &str, ty: Type) {
+        let index = self.stack.frames.last_mut().unwrap().store_local(name, ty.into());
+        self.bytecode.push(Bytecode::StoreLocal(index));
+    }
+
+    fn lookup_local(&mut self, name: &str) -> Value {
+        let (index, value) = self.stack.frames.last().unwrap().load_local(name);
+        self.bytecode.push(Bytecode::LoadLocal(index));
+        value
+    }
+
+    pub fn compile_statements(&mut self, constant_pool: &mut ConstantPool, statements: &[SpannedStatement]) {
+        for statement in statements {
+            self.compile_statement(constant_pool, statement);
+        }
+    }
+
     pub fn compile_statement(&mut self, constant_pool: &mut ConstantPool, statement: &SpannedStatement) {
         match &statement.statement {
             Statement::Expression(expr) => {
@@ -206,6 +283,16 @@ impl StatementsCompiler {
                 //TODO: Check that it is at the end of a function
                 self.bytecode.push(Bytecode::Return);
             }
+            Statement::LetStatement { binding, type_annotation, expression } => {
+                if let Pattern::Identifier(name) = &binding.pattern {
+                    if let Some(_type_annotation) = type_annotation {
+                        todo!("Check that the type of the expression matches the type annotation");
+                    }
+                    //TODO: perform type inference
+                    let ty = self.compile_expression(constant_pool, expression);
+                    self.bind_local(name, ty);
+                }
+            } 
         }
     }
 
@@ -214,6 +301,7 @@ impl StatementsCompiler {
             Expression::BinaryExpression { left, operator, right } => {
                 let ty1 = self.compile_expression(constant_pool, left);
                 let ty2 = self.compile_expression(constant_pool, right);
+                // TODO: Check that the types are compatible
                 match operator {
                     BinaryOperator::Add => {
                         match ty1 {
@@ -537,6 +625,9 @@ impl StatementsCompiler {
                         Type::U8
                     }
                 }
+            }
+            Expression::Variable(name) => {
+                self.lookup_local(name).into()
             }
         }
     }

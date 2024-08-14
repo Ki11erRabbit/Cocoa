@@ -1,4 +1,4 @@
-use crate::{ast::{BinaryOperator, Expression, Literal, PrefixOperator, SpannedExpression, SpannedStatement, Statement}, lexer::{Lexer, LexerError, SpannedToken, Token}};
+use crate::{ast::{BinaryOperator, Expression, Literal, Pattern, PrefixOperator, SpannedExpression, SpannedPattern, SpannedStatement, SpannedType, Statement, Type}, lexer::{Lexer, LexerError, SpannedToken, Token}};
 
 pub type ParseResult<'a, T> = Result<T, ParserError>;
 
@@ -59,8 +59,29 @@ impl<'a> Parser<'a> {
         }
     }
 
+    pub fn parse_block_body(&mut self) -> ParseResult<Vec<SpannedStatement>> {
+        let mut statements = Vec::new();
+        let mut found_eof = false;
+        while !found_eof {
+            match self.parse_statement() {
+                Ok(statement) => {
+                    statements.push(statement);
+                }
+                Err(ParserError::EOF) => {
+                    found_eof = true;
+                }
+                Err(err) => {
+                    return Err(err);
+                }
+            }
+        }
+        Ok(statements)
+    }
+    
+
     pub fn parse_statement(&mut self) -> ParseResult<SpannedStatement> {
-        match self.parse_expression_for_statement() {
+        let res = self.parse_expression_for_statement();
+        match res {
             None => {},
             Some(expr) => {
                 match self.peek() {
@@ -87,12 +108,57 @@ impl<'a> Parser<'a> {
                 }
             }
         }
+        if let Ok(SpannedToken { token: Token::Let, start, .. }) = self.peek() {
+            let start = *start;
+            self.next()?;
+            let pattern = self.parse_pattern()?;
+            let ty = self.parse_type()?;
+            let Ok(SpannedToken { token: Token::Assign, .. }) = self.next() else {
+                return Err(ParserError::Error {
+                    message: "Expected assignment operator".to_string(),
+                    column: 0,
+                    line: 0,
+                });
+            };
+            let expression = self.parse_expression()?;
+            let Ok(SpannedToken { token: Token::Semicolon, end, .. }) = self.next() else {
+                return Err(ParserError::Error {
+                    message: "Expected semicolon".to_string(),
+                    column: 0,
+                    line: 0,
+                });
+            };
+            return Ok(SpannedStatement {
+                statement: Statement::LetStatement {
+                    binding: pattern,
+                    type_annotation: ty,
+                    expression,
+                },
+                start,
+                end,
+            });
+        }
 
         todo!("Implement remaining statements")
     }
 
+    fn parse_pattern(&mut self) -> ParseResult<SpannedPattern> {
+        if let Ok(SpannedToken { token: Token::Identifier(_), .. }) = self.peek() {
+            let SpannedToken { token: Token::Identifier(id), start, end } = self.next()? else {
+                panic!("Expected identifier after checking that it is an identifier");
+            };
+            return Ok(SpannedPattern {
+                pattern: Pattern::Identifier(id.to_string()),
+                start,
+                end,
+            })
+        }
+        todo!("Implement remaining patterns")
+    }
+
     fn parse_expression_for_statement(&mut self) -> Option<ParseResult<SpannedExpression>> {
         match self.peek() {
+            Ok(SpannedToken { token: Token::Let, .. }) |
             Ok(SpannedToken { token: Token::Semicolon, .. }) |
             Ok(SpannedToken { token: Token::Arrow, .. }) |
             Ok(SpannedToken { token: Token::FatArrow, .. }) |
@@ -419,6 +485,16 @@ impl<'a> Parser<'a> {
                     end,
                 })
             }
+            SpannedToken { token: Token::Identifier(_), .. } => {
+                let SpannedToken { token: Token::Identifier(id), start, end } = self.next()? else {
+                    panic!("Expected identifier after checking that it is an identifier");
+                };
+                Ok(SpannedExpression {
+                    expression: Expression::Variable(id.to_string()),
+                    start,
+                    end
+                })
+            }
             x => {
                 println!("{:?}", x);
                 Err(ParserError::Error {
@@ -431,6 +507,86 @@ impl<'a> Parser<'a> {
     }
 }
 
+// Type Parsing
+impl<'a> Parser<'a> {
+    fn parse_type(&mut self) -> ParseResult<Option<SpannedType>> {
+        let Ok(SpannedToken { token: Token::Colon, .. }) = self.peek() else {
+            return Ok(None);
+        };
+        let SpannedToken { .. } = self.next()?;
+        let Ok(SpannedToken { token: Token::TypeIdentifier(id), start, end }) = self.next() else {
+            return Err(ParserError::Error {
+                message: "Expected type identifier".to_string(),
+                column: 0,
+                line: 0,
+            });
+        };
+        match id {
+            "u8" => Ok(Some(SpannedType {
+                type_: Type::U8,
+                start,
+                end,
+            })),
+            "u16" => Ok(Some(SpannedType {
+                type_: Type::U16,
+                start,
+                end,
+            })),
+            "u32" => Ok(Some(SpannedType {
+                type_: Type::U32,
+                start,
+                end,
+            })),
+            "u64" => Ok(Some(SpannedType {
+                type_: Type::U64,
+                start,
+                end,
+            })),
+            "i8" => Ok(Some(SpannedType {
+                type_: Type::I8,
+                start,
+                end,
+            })),
+            "i16" => Ok(Some(SpannedType {
+                type_: Type::I16,
+                start,
+                end,
+            })),
+            "i32" => Ok(Some(SpannedType {
+                type_: Type::I32,
+                start,
+                end,
+            })),
+            "i64" => Ok(Some(SpannedType {
+                type_: Type::I64,
+                start,
+                end,
+            })),
+            "f32" => Ok(Some(SpannedType {
+                type_: Type::F32,
+                start,
+                end,
+            })),
+            "f64" => Ok(Some(SpannedType {
+                type_: Type::F64,
+                start,
+                end,
+            })),
+            "bool" => Ok(Some(SpannedType {
+                type_: Type::Bool,
+                start,
+                end,
+            })),
+            "char" => Ok(Some(SpannedType {
+                type_: Type::Char,
+                start,
+                end,
+            })),
+            _ => todo!("Implement remaining types"),
+        }
+
+    }
+}
 
 
 #[cfg(test)]

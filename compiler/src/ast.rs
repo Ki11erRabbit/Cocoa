@@ -1,5 +1,28 @@
 
 
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+pub struct SpannedType {
+    pub type_: Type,
+    pub start: usize,
+    pub end: usize,
+}
+
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+pub enum Type {
+    Unit,
+    Bool,
+    Char,
+    I8,
+    I16,
+    I32,
+    I64,
+    U8,
+    U16,
+    U32,
+    U64,
+    F32,
+    F64,
+}
 
 
 
@@ -16,6 +39,23 @@ pub struct SpannedStatement {
 pub enum Statement {
     Expression(SpannedExpression),
     HangingExpression(SpannedExpression),
+    LetStatement {
+        binding: SpannedPattern,
+        type_annotation: Option<SpannedType>,
+        expression: SpannedExpression,
+    },
+}
+
+#[derive(Debug, PartialEq, PartialOrd, Clone)]
+pub struct SpannedPattern {
+    pub pattern: Pattern,
+    pub start: usize,
+    pub end: usize,
+}
+
+#[derive(Debug, PartialEq, PartialOrd, Clone)]
+pub enum Pattern {
+    Identifier(String),
 }
 
 
@@ -42,6 +82,7 @@ pub enum Expression {
         operator: PostfixOperator,
     },
     Literal(Literal),
+    Variable(String),
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]

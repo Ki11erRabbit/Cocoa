@@ -21,11 +21,11 @@ fn main() -> ParseResult<'static, ()> {
 
     let mut parser = parser::Parser::new(&source);
 
-    let statement = parser.parse_statement()?;
+    let statement = parser.parse_block_body()?;
 
     let mut constant_pool = backend::ConstantPool::new();
     let mut backend = backend::StatementsCompiler::new();
-    backend.compile_statement(&mut constant_pool, &statement);
+    backend.compile_statements(&mut constant_pool, &statement);
 
     let mut output = constant_pool.into_binary();
     output.extend(backend.into_binary());
