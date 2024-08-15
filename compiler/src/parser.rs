@@ -6,20 +6,18 @@ pub type ParseResult<'a, T> = Result<T, ParserError>;
 pub enum ParserError {
     Error {
         message: String,
-        column: usize,
-        line: usize,
-        size: usize,
+        start: usize,
+        end: usize,
     },
     EOF,
 }
 
 impl ParserError {
-    pub fn new(message: &str, column: usize, line: usize, size: usize) -> Self {
+    pub fn new(message: &str, start: usize, end: usize) -> Self {
         ParserError::Error {
             message: message.to_string(),
-            column,
-            line,
-            size,
+            start,
+            end,
         }
     }
 }
@@ -43,7 +41,7 @@ impl<'a> Parser<'a> {
             Some(token) => {
                 match token {
                     Ok(token) => Ok(token),
-                    Err(LexerError::Error{ message, column, line}) => Err(ParserError::new(&message, column, line, 0)),
+                    Err(LexerError::Error{ message, start, end}) => Err(ParserError::new(&message, start, end)),
                     Err(LexerError::Eof) => Err(ParserError::EOF),
                 }
             }
@@ -56,7 +54,7 @@ impl<'a> Parser<'a> {
             Some(token) => {
                 match token {
                     Ok(token) => Ok(token),
-                    Err(LexerError::Error{ message, column, line}) => Err(ParserError::new(message, *column, *line, 0)),
+                    Err(LexerError::Error{ message, start, end}) => Err(ParserError::new(message, *start, *end)),
                     Err(LexerError::Eof) => Err(ParserError::EOF),
                 }
             }
@@ -123,20 +121,25 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_let_statement(&mut self, start: usize, end: usize) -> ParseResult<SpannedStatement> {
-        let Ok(SpannedToken { token: Token::Let, end, .. }) = self.next() else {
-            let (line, column) = self.lexer.get_coord_from_pos(start);
-            return Err(ParserError::new("Expected let keyword", column, line, end - start));
+        let Ok(SpannedToken { token: Token::Let, .. }) = self.next() else {
+            return Err(ParserError::new("Expected let keyword", start, end));
         };
         let pattern = self.parse_pattern()?;
         let ty = self.parse_annotated_type(false)?;
-        let Ok(SpannedToken { token: Token::Assign, end, .. }) = self.next() else {
-            let (line, column) = self.lexer.get_coord_from_pos(end);
-            return Err(ParserError::new("Expected assignment operator", column, line, 1));
+        let Ok(SpannedToken { start, end, .. }) = self.peek() else {
+            panic!("Unexpected EOF");
+        };
+        let start = *start;
+        let end = *end;
+        let Ok(SpannedToken { token: Token::Assign, .. }) = self.next() else {
+            return Err(ParserError::new("Expected assignment operator", start, end));
         };
         let expression = self.parse_expression()?;
+        let start = expression.start;
+        let end = expression.end;
+        println!("Start: {}, End: {}", start, end);
         let Ok(SpannedToken { token: Token::Semicolon, end, start }) = self.next() else {
-            let (line, column) = self.lexer.get_coord_from_pos(end);
-            return Err(ParserError::new("Expected semicolon", column, line, end));
+            return Err(ParserError::new("Expected semicolon", start, end));
         };
         Ok(SpannedStatement {
             statement: Statement::LetStatement {
@@ -507,8 +510,7 @@ impl<'a> Parser<'a> {
                 let start = *start;
                 let end = *end;
                 drop(token);
-                let (line, column) = self.lexer.get_coord_from_pos(start);
-                Err(ParserError::new("Expected primary expression", column, line, end - start))
+                Err(ParserError::new("Expected primary expression", start, end))
             }
         }
     }
@@ -525,8 +527,7 @@ impl<'a> Parser<'a> {
 
         let Ok(SpannedToken { token: Token::Colon, .. }) = self.peek() else {
             if fail_on_missing {
-                let (line, column) = self.lexer.get_coord_from_pos(start);
-                return Err(ParserError::new("Expected type annotation", column, line, end - start));
+                return Err(ParserError::new("Expected type annotation", start, end));
             }
             return Ok(None);
         };
@@ -534,15 +535,14 @@ impl<'a> Parser<'a> {
     }
     
     fn parse_type(&mut self) -> ParseResult<SpannedType> {
-        let SpannedToken { end, .. } = self.next()?;
-        let Ok(SpannedToken { token: _, start, end: _ }) = self.peek() else {
-            let (line, column) = self.lexer.get_coord_from_pos(end);
-            return Err(ParserError::new("Expected type identifier", column, line, 0));
+        let SpannedToken { end, start, .. } = self.next()?;
+        let Ok(SpannedToken { token: _, start, end }) = self.peek() else {
+            return Err(ParserError::new("Expected type identifier", start, end));
         };
         let start = *start;
+        let end = *end;
         let Ok(SpannedToken { token: Token::TypeIdentifier(id), start, end }) = self.next() else {
-            let (line, column) = self.lexer.get_coord_from_pos(start);
-            return Err(ParserError::new("Expected type identifier", column, line, end - start));
+            return Err(ParserError::new("Expected type identifier", start, end));
         };
         match id {
             "u8" => Ok(SpannedType {

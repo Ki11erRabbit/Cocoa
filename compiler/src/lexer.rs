@@ -10,8 +10,8 @@ pub type LexerResult<'a> = Result<SpannedToken<'a>, LexerError>;
 pub enum LexerError {
     Error {
         message: String,
-        column: usize,
-        line: usize,
+        start: usize,
+        end: usize,
     },
     Eof,
 }
@@ -111,23 +111,6 @@ pub struct Lexer<'a> {
     peeked: Option<LexerResult<'a>>,
 }
 
-impl Lexer<'_> {
-    /// Get the line and column of a position in the input string
-    pub fn get_coord_from_pos(&self, pos: usize) -> (usize, usize) {
-        let mut line = 0;
-        let mut column = 0;
-        for (i, newline_pos) in self.newline_pos.iter().enumerate() {
-            if pos < *newline_pos {
-                column = pos - self.newline_pos[i - 1];
-                break;
-            }
-            line += 1;
-        }
-        (line, column)
-    }
-
-}
-
 impl<'a> Lexer<'a> {
     pub fn new(input: &'a str) -> Self {
         Lexer {
@@ -138,15 +121,19 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    pub fn get_current_line(&self) -> usize {
-        self.newline_pos.last().unwrap().clone() + 1
-    }
-
     pub fn peek(&mut self) -> Option<&LexerResult<'a>> {
         if self.peeked.is_none() {
             self.peeked = Some(self.next_token());
         }
         self.peeked.as_ref()
+    }
+
+    fn get_next(&mut self) -> Option<(usize, char)> {
+        self.input.next()
+    }
+
+    fn peek_next(&mut self) -> Option<&(usize, char)> {
+        self.input.peek()
     }
 }
 
@@ -168,16 +155,16 @@ impl<'a> LexerIterator<'a> for Lexer<'a> {
     fn next_token(&mut self) -> LexerResult<'a> {
         let mut end;
         let start;
-        let token = match self.input.next() {
+        let token = match self.get_next() {
             Some((startt, c)) => {
                 start = startt;
                 end = start;
                 match c {
                     'a'..='z' | '_' => {
-                        while let Some((i, c)) = self.input.peek() {
+                        while let Some((i, c)) = self.peek_next() {
                             if c.is_alphanumeric() || *c == '_' {
                                 end = *i;
-                                self.input.next();
+                                self.get_next();
                             } else {
                                 break;
                             }
@@ -223,10 +210,10 @@ impl<'a> LexerIterator<'a> for Lexer<'a> {
                         }
                     },
                     'A'..='Z' => {
-                        while let Some((i, c)) = self.input.peek() {
+                        while let Some((i, c)) = self.peek_next() {
                             if c.is_alphanumeric() || *c == '_' {
                                 end = *i;
-                                self.input.next();
+                                self.get_next();
                             } else {
                                 break;
                             }
@@ -237,22 +224,22 @@ impl<'a> LexerIterator<'a> for Lexer<'a> {
                         }
                     },
                     '0'..='9' => {
-                        while let Some((i, c)) = self.input.peek() {
+                        while let Some((i, c)) = self.peek_next() {
                             if c.is_digit(10) {
                                 end = *i;
-                                self.input.next();
+                                self.get_next();
                             } else {
                                 break;
                             }
                         }
-                        if let Some((_, 'u')) = self.input.peek() {
-                            self.input.next();
+                        if let Some((_, 'u')) = self.peek_next() {
+                            self.get_next();
                             let mut suffix = String::with_capacity(2);
-                            while let Some((i, c)) = self.input.peek() {
+                            while let Some((i, c)) = self.peek_next() {
                                 if c.is_digit(10) {
                                     suffix.push(*c);
                                     end = *i;
-                                    self.input.next();
+                                    self.get_next();
                                 } else {
                                     break;
                                 }
@@ -264,19 +251,19 @@ impl<'a> LexerIterator<'a> for Lexer<'a> {
                                 "64" => Token::U64Lit(self.raw_input[start..=end].parse().unwrap()),
                                 _ => return Err(LexerError::Error {
                                     message: "Invalid unsigned integer suffix".to_string(),
-                                    column: start,
-                                    line: self.get_current_line(),
+                                    start,
+                                    end,
                                 }),
                             }
                             
-                        } else if let Some((_, 'i')) = self.input.peek() {
-                            self.input.next();
+                        } else if let Some((_, 'i')) = self.peek_next() {
+                            self.get_next();
                             let mut suffix = String::with_capacity(2);
-                            while let Some((i, c)) = self.input.peek() {
+                            while let Some((i, c)) = self.peek_next() {
                                 if c.is_digit(10) {
                                     suffix.push(*c);
                                     end = *i;
-                                    self.input.next();
+                                    self.get_next();
                                 } else {
                                     break;
                                 }
@@ -288,27 +275,27 @@ impl<'a> LexerIterator<'a> for Lexer<'a> {
                                 "64" => Token::I64Lit(self.raw_input[start..=end].parse().unwrap()),
                                 _ => return Err(LexerError::Error {
                                     message: "Invalid signed integer suffix".to_string(),
-                                    column: start,
-                                    line: self.get_current_line(),
+                                    start,
+                                    end,
                                 }),
                             }
-                        } else if let Some((_, '.')) = self.input.peek() {
-                            self.input.next();
-                            while let Some((i, c)) = self.input.peek() {
+                        } else if let Some((_, '.')) = self.peek_next() {
+                            self.get_next();
+                            while let Some((i, c)) = self.peek_next() {
                                 if c.is_digit(10) {
                                     end = *i;
-                                    self.input.next();
+                                    self.get_next();
                                 } else {
                                     break;
                                 }
                             }
-                            if let Some((_, 'f')) = self.input.peek() {
+                            if let Some((_, 'f')) = self.peek_next() {
                                 let mut suffix = String::with_capacity(2);
-                                while let Some((i, c)) = self.input.peek() {
+                                while let Some((i, c)) = self.peek_next() {
                                     if c.is_digit(10) {
                                         suffix.push(*c);
                                         end = *i;
-                                        self.input.next();
+                                        self.get_next();
                                     } else {
                                         break;
                                     }
@@ -318,8 +305,8 @@ impl<'a> LexerIterator<'a> for Lexer<'a> {
                                     "64" => Token::F64Lit(self.raw_input[start..=end].parse().unwrap()),
                                     _ => return Err(LexerError::Error {
                                         message: "Invalid float suffix".to_string(),
-                                        column: start,
-                                        line: self.get_current_line(),
+                                        start,
+                                        end,
                                     }),
                                 }
                             } else {
@@ -335,7 +322,7 @@ impl<'a> LexerIterator<'a> for Lexer<'a> {
                         let mut the_char = None;
                         let mut the_label = None;
                         let mut found_closing_quote = false;
-                        while let Some((i, c)) = self.input.next() {
+                        while let Some((i, c)) = self.get_next() {
                             if c == '\'' && !found_backslash && size == 1 {
                                 end = i;
                                 found_closing_quote = true;
@@ -356,8 +343,8 @@ impl<'a> LexerIterator<'a> for Lexer<'a> {
                                     '\'' => the_char = Some('\''),
                                     _ => return Err(LexerError::Error {
                                         message: "Invalid escape sequence".to_string(),
-                                        column: i,
-                                        line: self.get_current_line(),
+                                        start,
+                                        end,
                                     }),
                                 }
                             } else {
@@ -370,20 +357,20 @@ impl<'a> LexerIterator<'a> for Lexer<'a> {
                             (None, Some(tok)) => tok,
                             (None, None) if found_closing_quote => return Err(LexerError::Error {
                                 message: "Invalid character literal".to_string(),
-                                column: start,
-                                line: self.get_current_line(),
+                                start,
+                                end,
                             }),
                             _ => return Err(LexerError::Error {
                                 message: "Invalid Label".to_string(),
-                                column: start,
-                                line: self.get_current_line(),
+                                start,
+                                end,
                             }),
                         }
                     },
                     '"' => {
                         let mut found_backslash = false;
                         let mut the_string = String::new();
-                        while let Some((i, c)) = self.input.next() {
+                        while let Some((i, c)) = self.get_next() {
                             if c == '"' && !found_backslash {
                                 end = i;
                                 break;
@@ -399,8 +386,8 @@ impl<'a> LexerIterator<'a> for Lexer<'a> {
                                     '"' => the_string.push('"'),
                                     _ => return Err(LexerError::Error {
                                         message: "Invalid escape sequence".to_string(),
-                                        column: i,
-                                        line: self.get_current_line(),
+                                        start,
+                                        end,
                                     }),
                                 }
                             } else {
@@ -417,9 +404,9 @@ impl<'a> LexerIterator<'a> for Lexer<'a> {
                     ']' => Token::BracketClose,
                     ',' => Token::Comma,
                     ':' => {
-                        if let Some((i, ':')) = self.input.peek() {
+                        if let Some((i, ':')) = self.peek_next() {
                             end = *i;
-                            self.input.next();
+                            self.get_next();
                             Token::Scope
                         } else {
                             Token::Colon
@@ -428,13 +415,13 @@ impl<'a> LexerIterator<'a> for Lexer<'a> {
                     ';' => Token::Semicolon,
                     '?' => Token::Try,
                     '=' => {
-                        if let Some((i, '>')) = self.input.peek() {
+                        if let Some((i, '>')) = self.peek_next() {
                             end = *i;
-                            self.input.next();
+                            self.get_next();
                             Token::FatArrow
-                        } else if let Some((i, '=')) = self.input.peek() {
+                        } else if let Some((i, '=')) = self.peek_next() {
                             end = *i;
-                            self.input.next();
+                            self.get_next();
                             Token::Eq
                         } else {
                             Token::Assign
@@ -442,9 +429,9 @@ impl<'a> LexerIterator<'a> for Lexer<'a> {
                     }
                     '+' => Token::Add,
                     '-' => {
-                        if let Some((i, '>')) = self.input.peek() {
+                        if let Some((i, '>')) = self.peek_next() {
                             end = *i;
-                            self.input.next();
+                            self.get_next();
                             Token::Arrow
                         } else {
                             Token::Sub
@@ -452,21 +439,21 @@ impl<'a> LexerIterator<'a> for Lexer<'a> {
                     }
                     '*' => Token::Mul,
                     '/' => {
-                        if let Some((_, '/')) = self.input.peek() {
-                            self.input.next();
-                            while let Some((i, c)) = self.input.next() {
+                        if let Some((_, '/')) = self.peek_next() {
+                            self.get_next();
+                            while let Some((i, c)) = self.get_next() {
                                 if c == '\n' {
                                     self.newline_pos.push(i);
                                     break;
                                 }
                             }
                             return self.next_token();
-                        } else if let Some((_, '*')) = self.input.peek() {
-                            self.input.next();
-                            while let Some((_, c)) = self.input.next() {
+                        } else if let Some((_, '*')) = self.peek_next() {
+                            self.get_next();
+                            while let Some((_, c)) = self.get_next() {
                                 if c == '*' {
-                                    if let Some((_, '/')) = self.input.peek() {
-                                        self.input.next();
+                                    if let Some((_, '/')) = self.peek_next() {
+                                        self.get_next();
                                         break;
                                     }
                                 }
@@ -481,18 +468,18 @@ impl<'a> LexerIterator<'a> for Lexer<'a> {
                     }
                     '%' => Token::Mod,
                     '&' => {
-                        if let Some((i, '&')) = self.input.peek() {
+                        if let Some((i, '&')) = self.peek_next() {
                             end = *i;
-                            self.input.next();
+                            self.get_next();
                             Token::LogAnd
                         } else {
                             Token::BitAnd
                         }
                     }
                     '|' => {
-                        if let Some((i, '|')) = self.input.peek() {
+                        if let Some((i, '|')) = self.peek_next() {
                             end = *i;
-                            self.input.next();
+                            self.get_next();
                             Token::LogOr
                         } else {
                             Token::BitOr
@@ -501,46 +488,46 @@ impl<'a> LexerIterator<'a> for Lexer<'a> {
                     '^' => Token::BitXor,
                     '!' => Token::Not,
                     '<' => {
-                        if let Some((i, '=')) = self.input.peek() {
+                        if let Some((i, '=')) = self.peek_next() {
                             end = *i;
-                            self.input.next();
+                            self.get_next();
                             Token::Le
-                        } else if let Some((i, '<')) = self.input.peek() {
+                        } else if let Some((i, '<')) = self.peek_next() {
                             end = *i;
-                            self.input.next();
+                            self.get_next();
                             Token::LShift
                         } else {
                             Token::Lt
                         }
                     },
                     '>' => {
-                        if let Some((i, '=')) = self.input.peek() {
+                        if let Some((i, '=')) = self.peek_next() {
                             end = *i;
-                            self.input.next();
+                            self.get_next();
                             Token::Ge
-                        } else if let Some((i, '=')) = self.input.peek() {
+                        } else if let Some((i, '=')) = self.peek_next() {
                             end = *i;
-                            self.input.next();
+                            self.get_next();
                             Token::Neq
-                        } else if let Some((i, '-')) = self.input.peek() {
+                        } else if let Some((i, '-')) = self.peek_next() {
                             end = *i;
-                            self.input.next();
+                            self.get_next();
                             Token::InclusiveRange
-                        } else if let Some((i, '>')) = self.input.peek() {
+                        } else if let Some((i, '>')) = self.peek_next() {
                             end = *i;
-                            self.input.next();
+                            self.get_next();
                             Token::RShift
                         } else {
                             Token::Gt
                         }
                     },
                     '.' => {
-                        if let Some((i, '.')) = self.input.peek() {
+                        if let Some((i, '.')) = self.peek_next() {
                             let i = *i;
-                            self.input.next();
-                            if let Some((i, '=')) = self.input.peek() {
+                            self.get_next();
+                            if let Some((i, '=')) = self.peek_next() {
                                 end = *i;
-                                self.input.next();
+                                self.get_next();
                                 Token::InclusiveRange
                             } else {
                                 end = i;
@@ -555,18 +542,18 @@ impl<'a> LexerIterator<'a> for Lexer<'a> {
                         return self.next_token();
                     },
                     c if c.is_whitespace() => {
-                        while let Some((_, c)) = self.input.peek() {
+                        while let Some((_, c)) = self.peek_next() {
                             if !c.is_whitespace() {
                                 break;
                             }
-                            self.input.next();
+                            self.get_next();
                         }
                         return self.next_token();
                     },
                     c => return Err(LexerError::Error {
                         message: format!("Invalid character: {}", c),
-                        column: start,
-                        line: self.get_current_line(),
+                        start,
+                        end,
                     }),
 
                 }
@@ -591,8 +578,8 @@ mod test {
             match lexer.next_token() {
                 Ok(token) => tokens.push(token),
                 Err(LexerError::Eof) => break,
-                Err(LexerError::Error { message, column, line }) => {
-                    panic!("Error at line {}: {} at column {}", line, message, column);
+                Err(LexerError::Error { message, start, end }) => {
+                    panic!("Error at position {}: {} at position {}", start, message, end);
                 }
             }
         }
@@ -619,8 +606,8 @@ mod test {
             match lexer.next_token() {
                 Ok(token) => tokens.push(token),
                 Err(LexerError::Eof) => break,
-                Err(LexerError::Error { message, column, line }) => {
-                    panic!("Error at line {}: {} at column {}", line, message, column);
+                Err(LexerError::Error { message, start, end }) => {
+                    panic!("Error at position {}: {} at position {}", start, message, end);
                 }
             }
         }
@@ -648,8 +635,8 @@ mod test {
             match lexer.next_token() {
                 Ok(token) => tokens.push(token),
                 Err(LexerError::Eof) => break,
-                Err(LexerError::Error { message, column, line }) => {
-                    panic!("Error at line {}: {} at column {}", line, message, column);
+                Err(LexerError::Error { message, start, end }) => {
+                    panic!("Error at position {}: {} at position {}", start, message, end);
                 }
             }
         }
@@ -674,8 +661,8 @@ mod test {
             match lexer.next_token() {
                 Ok(token) => tokens.push(token),
                 Err(LexerError::Eof) => break,
-                Err(LexerError::Error { message, column, line }) => {
-                    panic!("Error at line {}: {} at column {}", line, message, column);
+                Err(LexerError::Error { message, start, end }) => {
+                    panic!("Error at position {}: {} at position {}", start, message, end);
                 }
             }
         }
@@ -701,8 +688,8 @@ mod test {
             match lexer.next_token() {
                 Ok(token) => tokens.push(token),
                 Err(LexerError::Eof) => break,
-                Err(LexerError::Error { message, column, line }) => {
-                    panic!("Error at line {}: {} at column {}", line, message, column);
+                Err(LexerError::Error { message, start, end }) => {
+                    panic!("Error at position {}: {} at position {}", start, message, end);
                 }
             }
         }
@@ -729,8 +716,8 @@ mod test {
             match lexer.next_token() {
                 Ok(token) => tokens.push(token),
                 Err(LexerError::Eof) => break,
-                Err(LexerError::Error { message, column, line }) => {
-                    panic!("Error at line {}: {} at column {}", line, message, column);
+                Err(LexerError::Error { message, start, end }) => {
+                    panic!("Error at position {}: {} at position {}", start, message, end);
                 }
             }
         }
@@ -757,8 +744,8 @@ mod test {
             match lexer.next_token() {
                 Ok(token) => tokens.push(token),
                 Err(LexerError::Eof) => break,
-                Err(LexerError::Error { message, column, line }) => {
-                    panic!("Error at line {}: {} at column {}", line, message, column);
+                Err(LexerError::Error { message, start, end }) => {
+                    panic!("Error at position {}: {} at position {}", start, message, end);
                 }
             }
         }

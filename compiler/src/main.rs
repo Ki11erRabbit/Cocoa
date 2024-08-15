@@ -25,10 +25,10 @@ fn main() {
 
     let statement = match parser.parse_block_body() {
         Result::Ok(statement) => statement,
-        Result::Err(ParserError::Error { message, column, line, size }) => {
-            Report::build(ReportKind::Error, filename, line * column)
+        Result::Err(ParserError::Error { message, start, end }) => {
+            Report::build(ReportKind::Error, filename, start)
                 .with_label(
-                    Label::new((filename, (line * column)..(line * column + size)))
+                    Label::new((filename, start..end))
                         .with_message(message)
                 )
                 .finish()
