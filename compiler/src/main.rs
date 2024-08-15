@@ -1,5 +1,7 @@
 use backend::IntoBinary;
-use parser::ParseResult;
+use parser::{ParseResult, ParserError};
+use ariadne::{Label, Report, ReportKind, Source};
+
 
 mod ast;
 mod parser;
@@ -8,7 +10,7 @@ mod backend;
 
 
 
-fn main() -> ParseResult<'static, ()> {
+fn main() {
     let args = std::env::args().collect::<Vec<String>>();
 
     if args.len() != 2 {
@@ -21,7 +23,25 @@ fn main() -> ParseResult<'static, ()> {
 
     let mut parser = parser::Parser::new(&source);
 
-    let statement = parser.parse_block_body()?;
+    let statement = match parser.parse_block_body() {
+        Result::Ok(statement) => statement,
+        Result::Err(ParserError::Error { message, column, line, size }) => {
+            Report::build(ReportKind::Error, filename, line * column)
+                .with_label(
+                    Label::new((filename, (line * column)..(line * column + size)))
+                        .with_message(message)
+                )
+                .finish()
+                .print((filename, Source::from(source)))
+                .unwrap();
+
+            std::process::exit(1);
+        }
+        Result::Err(ParserError::EOF) => {
+            eprintln!("Unexpected end of file");
+            std::process::exit(1);
+        }
+    };
 
     let mut constant_pool = backend::ConstantPool::new();
     let mut backend = backend::StatementsCompiler::new();
@@ -32,5 +52,4 @@ fn main() -> ParseResult<'static, ()> {
 
     let output_filename = format!("{}.bc", filename);
     std::fs::write(output_filename, output).unwrap();
-    Ok(())
 }

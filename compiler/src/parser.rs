@@ -8,8 +8,20 @@ pub enum ParserError {
         message: String,
         column: usize,
         line: usize,
+        size: usize,
     },
     EOF,
+}
+
+impl ParserError {
+    pub fn new(message: &str, column: usize, line: usize, size: usize) -> Self {
+        ParserError::Error {
+            message: message.to_string(),
+            column,
+            line,
+            size,
+        }
+    }
 }
 
 pub struct Parser<'a> {
@@ -31,11 +43,7 @@ impl<'a> Parser<'a> {
             Some(token) => {
                 match token {
                     Ok(token) => Ok(token),
-                    Err(LexerError::Error{ message, column, line}) => Err(ParserError::Error {
-                        message,
-                        column,
-                        line,
-                    }),
+                    Err(LexerError::Error{ message, column, line}) => Err(ParserError::new(&message, column, line, 0)),
                     Err(LexerError::Eof) => Err(ParserError::EOF),
                 }
             }
@@ -48,11 +56,7 @@ impl<'a> Parser<'a> {
             Some(token) => {
                 match token {
                     Ok(token) => Ok(token),
-                    Err(LexerError::Error{ message, column, line}) => Err(ParserError::Error {
-                        message: message.clone(),
-                        column: *column,
-                        line: *line,
-                    }),
+                    Err(LexerError::Error{ message, column, line}) => Err(ParserError::new(message, *column, *line, 0)),
                     Err(LexerError::Eof) => Err(ParserError::EOF),
                 }
             }
@@ -109,41 +113,30 @@ impl<'a> Parser<'a> {
                 }
             }
         }
-        if let Ok(SpannedToken { token: Token::Let, start, .. }) = self.peek() {
+        if let Ok(SpannedToken { token: Token::Let, start, end }) = self.peek() {
             let start = *start;
-            return self.parse_let_statement(start);
+            let end = *end;
+            return self.parse_let_statement(start, end);
         }
 
         todo!("Implement remaining statements")
     }
 
-    fn parse_let_statement(&mut self, start: usize) -> ParseResult<SpannedStatement> {
-        let Ok(SpannedToken { token: Token::Let, start, .. }) = self.next() else {
+    fn parse_let_statement(&mut self, start: usize, end: usize) -> ParseResult<SpannedStatement> {
+        let Ok(SpannedToken { token: Token::Let, end, .. }) = self.next() else {
             let (line, column) = self.lexer.get_coord_from_pos(start);
-            return Err(ParserError::Error {
-                message: "Expected let keyword".to_string(),
-                column,
-                line,
-            });
+            return Err(ParserError::new("Expected let keyword", column, line, end - start));
         };
         let pattern = self.parse_pattern()?;
-        let ty = self.parse_type()?;
-        let Ok(SpannedToken { token: Token::Assign, start, .. }) = self.next() else {
-            let (line, column) = self.lexer.get_coord_from_pos(start);
-            return Err(ParserError::Error {
-                message: "Expected assignment operator".to_string(),
-                column,
-                line,
-            });
+        let ty = self.parse_annotated_type(false)?;
+        let Ok(SpannedToken { token: Token::Assign, end, .. }) = self.next() else {
+            let (line, column) = self.lexer.get_coord_from_pos(end);
+            return Err(ParserError::new("Expected assignment operator", column, line, 1));
         };
         let expression = self.parse_expression()?;
         let Ok(SpannedToken { token: Token::Semicolon, end, start }) = self.next() else {
-            let (line, column) = self.lexer.get_coord_from_pos(start);
-            return Err(ParserError::Error {
-                message: "Expected semicolon".to_string(),
-                column,
-                line,
-            });
+            let (line, column) = self.lexer.get_coord_from_pos(end);
+            return Err(ParserError::new("Expected semicolon", column, line, end));
         };
         Ok(SpannedStatement {
             statement: Statement::LetStatement {
@@ -509,16 +502,13 @@ impl<'a> Parser<'a> {
                     end
                 })
             }
-            SpannedToken { token, start, .. } => {
+            SpannedToken { token, start, end } => {
                 println!("{:?}", token);
                 let start = *start;
+                let end = *end;
                 drop(token);
                 let (line, column) = self.lexer.get_coord_from_pos(start);
-                Err(ParserError::Error {
-                    message: "Expected primary expression".to_string(),
-                    column,
-                    line,
-                })
+                Err(ParserError::new("Expected primary expression", column, line, end - start))
             }
         }
     }
@@ -526,89 +516,95 @@ impl<'a> Parser<'a> {
 
 // Type Parsing
 impl<'a> Parser<'a> {
-    fn parse_type(&mut self) -> ParseResult<Option<SpannedType>> {
+    fn parse_annotated_type(&mut self, fail_on_missing: bool) -> ParseResult<Option<SpannedType>> {
+        let Ok(SpannedToken { start, end, .. }) = self.peek() else {
+            panic!("Unexpected EOF");
+        };
+        let start = *start;
+        let end = *end;
+
         let Ok(SpannedToken { token: Token::Colon, .. }) = self.peek() else {
+            if fail_on_missing {
+                let (line, column) = self.lexer.get_coord_from_pos(start);
+                return Err(ParserError::new("Expected type annotation", column, line, end - start));
+            }
             return Ok(None);
         };
+        Ok(Some(self.parse_type()?))
+    }
+    
+    fn parse_type(&mut self) -> ParseResult<SpannedType> {
         let SpannedToken { end, .. } = self.next()?;
         let Ok(SpannedToken { token: _, start, end: _ }) = self.peek() else {
             let (line, column) = self.lexer.get_coord_from_pos(end);
-            return Err(ParserError::Error {
-                message: "Expected type identifier".to_string(),
-                column,
-                line,
-            });
+            return Err(ParserError::new("Expected type identifier", column, line, 0));
         };
         let start = *start;
         let Ok(SpannedToken { token: Token::TypeIdentifier(id), start, end }) = self.next() else {
             let (line, column) = self.lexer.get_coord_from_pos(start);
-            return Err(ParserError::Error {
-                message: "Expected type identifier".to_string(),
-                column,
-                line,
-            });
+            return Err(ParserError::new("Expected type identifier", column, line, end - start));
         };
         match id {
-            "u8" => Ok(Some(SpannedType {
+            "u8" => Ok(SpannedType {
                 type_: Type::U8,
                 start,
                 end,
-            })),
-            "u16" => Ok(Some(SpannedType {
+            }),
+            "u16" => Ok(SpannedType {
                 type_: Type::U16,
                 start,
                 end,
-            })),
-            "u32" => Ok(Some(SpannedType {
+            }),
+            "u32" => Ok(SpannedType {
                 type_: Type::U32,
                 start,
                 end,
-            })),
-            "u64" => Ok(Some(SpannedType {
+            }),
+            "u64" => Ok(SpannedType {
                 type_: Type::U64,
                 start,
                 end,
-            })),
-            "i8" => Ok(Some(SpannedType {
+            }),
+            "i8" => Ok(SpannedType {
                 type_: Type::I8,
                 start,
                 end,
-            })),
-            "i16" => Ok(Some(SpannedType {
+            }),
+            "i16" => Ok(SpannedType {
                 type_: Type::I16,
                 start,
                 end,
-            })),
-            "i32" => Ok(Some(SpannedType {
+            }),
+            "i32" => Ok(SpannedType {
                 type_: Type::I32,
                 start,
                 end,
-            })),
-            "i64" => Ok(Some(SpannedType {
+            }),
+            "i64" => Ok(SpannedType {
                 type_: Type::I64,
                 start,
                 end,
-            })),
-            "f32" => Ok(Some(SpannedType {
+            }),
+            "f32" => Ok(SpannedType {
                 type_: Type::F32,
                 start,
                 end,
-            })),
-            "f64" => Ok(Some(SpannedType {
+            }),
+            "f64" => Ok(SpannedType {
                 type_: Type::F64,
                 start,
                 end,
-            })),
-            "bool" => Ok(Some(SpannedType {
+            }),
+            "bool" => Ok(SpannedType {
                 type_: Type::Bool,
                 start,
                 end,
-            })),
-            "char" => Ok(Some(SpannedType {
+            }),
+            "char" => Ok(SpannedType {
                 type_: Type::Char,
                 start,
                 end,
-            })),
+            }),
             _ => todo!("Implement remaining types"),
         }
 
