@@ -137,7 +137,6 @@ impl<'a> Parser<'a> {
         let expression = self.parse_expression()?;
         let start = expression.start;
         let end = expression.end;
-        println!("Start: {}, End: {}", start, end);
         let Ok(SpannedToken { token: Token::Semicolon, end, start }) = self.next() else {
             return Err(ParserError::new("Expected semicolon", start, end));
         };

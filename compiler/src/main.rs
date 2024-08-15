@@ -7,6 +7,7 @@ mod ast;
 mod parser;
 mod lexer;
 mod backend;
+mod typechecker;
 
 
 
@@ -43,9 +44,36 @@ fn main() {
         }
     };
 
+    let mut typechecker = typechecker::TypeChecker::new();
+    let statements = match typechecker.check_statements(statement) {
+        Ok(statements) => statements,
+        Err(()) => {
+            for error in typechecker.errors.iter() {
+                let report = Report::build(ReportKind::Error, filename, error.start)
+                    .with_label(
+                        Label::new((filename, error.start..error.end))
+                            .with_message(error.message.clone())
+                    );
+                let mut report = if let Some(tip) = &error.tip {
+                    report.with_note(tip.clone())
+                } else {
+                    report
+                };
+                for (start, end, message) in &error.additional {
+                    report = report.with_label(
+                        Label::new((filename, *start..*end))
+                            .with_message(message.clone())
+                    );
+                }
+                report.finish().print((filename, Source::from(source.clone()))).unwrap();
+            }
+            std::process::exit(1);
+        }
+    };
+
     let mut constant_pool = backend::ConstantPool::new();
     let mut backend = backend::StatementsCompiler::new();
-    backend.compile_statements(&mut constant_pool, &statement);
+    backend.compile_statements(&mut constant_pool, &statements);
 
     let mut output = constant_pool.into_binary();
     output.extend(backend.into_binary());

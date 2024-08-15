@@ -3,7 +3,7 @@ use std::collections::HashMap;
 
 use bytecode::Bytecode;
 
-use crate::ast::{BinaryOperator, Expression, Pattern, PrefixOperator, SpannedExpression, SpannedPattern, SpannedStatement, Statement};
+use crate::typechecker::ast::{BinaryOperator, Expression, Pattern, PrefixOperator, SpannedExpression, SpannedStatement, Statement};
 
 
 pub trait IntoBinary {
@@ -285,10 +285,6 @@ impl StatementsCompiler {
             }
             Statement::LetStatement { binding, type_annotation, expression } => {
                 if let Pattern::Identifier(name) = &binding.pattern {
-                    if let Some(_type_annotation) = type_annotation {
-                        todo!("Check that the type of the expression matches the type annotation");
-                    }
-                    //TODO: perform type inference
                     let ty = self.compile_expression(constant_pool, expression);
                     self.bind_local(name, ty);
                 }
@@ -554,72 +550,72 @@ impl StatementsCompiler {
             }
             Expression::Literal(literal) => {
                 match literal {
-                    crate::ast::Literal::U8(value) => {
+                    crate::typechecker::ast::Literal::U8(value) => {
                         let index = constant_pool.add_constant(Value::U8(*value));
                         self.bytecode.push(Bytecode::LoadConstant(index));
                         Type::U8
                     }
-                    crate::ast::Literal::U16(value) => {
+                    crate::typechecker::ast::Literal::U16(value) => {
                         let index = constant_pool.add_constant(Value::U16(*value));
                         self.bytecode.push(Bytecode::LoadConstant(index));
                         Type::U16
                     }
-                    crate::ast::Literal::U32(value) => {
+                    crate::typechecker::ast::Literal::U32(value) => {
                         let index = constant_pool.add_constant(Value::U32(*value));
                         self.bytecode.push(Bytecode::LoadConstant(index));
                         Type::U32
                     }
-                    crate::ast::Literal::U64(value) => {
+                    crate::typechecker::ast::Literal::U64(value) => {
                         let index = constant_pool.add_constant(Value::U64(*value));
                         self.bytecode.push(Bytecode::LoadConstant(index));
                         Type::U64
                     }
-                    crate::ast::Literal::I8(value) => {
+                    crate::typechecker::ast::Literal::I8(value) => {
                         let index = constant_pool.add_constant(Value::I8(*value));
                         self.bytecode.push(Bytecode::LoadConstant(index));
                         Type::I8
                     }
-                    crate::ast::Literal::I16(value) => {
+                    crate::typechecker::ast::Literal::I16(value) => {
                         let index = constant_pool.add_constant(Value::I16(*value));
                         self.bytecode.push(Bytecode::LoadConstant(index));
                         Type::I16
                     }
-                    crate::ast::Literal::I32(value) => {
+                    crate::typechecker::ast::Literal::I32(value) => {
                         let index = constant_pool.add_constant(Value::I32(*value));
                         self.bytecode.push(Bytecode::LoadConstant(index));
                         Type::I32
                     }
-                    crate::ast::Literal::I64(value) => {
+                    crate::typechecker::ast::Literal::I64(value) => {
                         let index = constant_pool.add_constant(Value::I64(*value));
                         self.bytecode.push(Bytecode::LoadConstant(index));
                         Type::I64
                     }
-                    crate::ast::Literal::Int(value) => {
+                    crate::typechecker::ast::Literal::Int(value) => {
                         let index = constant_pool.add_constant(Value::I64((*value) as i64));
                         self.bytecode.push(Bytecode::LoadConstant(index));
                         Type::I64
                     }
-                    crate::ast::Literal::F32(value) => {
+                    crate::typechecker::ast::Literal::F32(value) => {
                         let index = constant_pool.add_constant(Value::F32(*value));
                         self.bytecode.push(Bytecode::LoadConstant(index));
                         Type::F32
                     }
-                    crate::ast::Literal::F64(value) => {
+                    crate::typechecker::ast::Literal::F64(value) => {
                         let index = constant_pool.add_constant(Value::F64(*value));
                         self.bytecode.push(Bytecode::LoadConstant(index));
                         Type::F64
                     }
-                    crate::ast::Literal::Char(value) => {
+                    crate::typechecker::ast::Literal::Char(value) => {
                         let index = constant_pool.add_constant(Value::Char(*value));
                         self.bytecode.push(Bytecode::LoadConstant(index));
                         Type::Char
                     }
-                    crate::ast::Literal::String(_) => {
+                    crate::typechecker::ast::Literal::String(_) => {
                         let index = constant_pool.add_constant(Value::Str);
                         self.bytecode.push(Bytecode::LoadConstant(index));
                         Type::Str
                     }
-                    crate::ast::Literal::Bool(b) => {
+                    crate::typechecker::ast::Literal::Bool(b) => {
                         let index = constant_pool.add_constant(Value::U8(if *b { 1 } else { 0 }));
                         self.bytecode.push(Bytecode::LoadConstant(index));
                         Type::U8

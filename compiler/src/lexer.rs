@@ -232,6 +232,7 @@ impl<'a> LexerIterator<'a> for Lexer<'a> {
                                 break;
                             }
                         }
+                        let digit_end = end;
                         if let Some((_, 'u')) = self.peek_next() {
                             self.get_next();
                             let mut suffix = String::with_capacity(2);
@@ -245,10 +246,10 @@ impl<'a> LexerIterator<'a> for Lexer<'a> {
                                 }
                             }
                             match suffix.as_str() {
-                                "8" => Token::U8Lit(self.raw_input[start..=end].parse().unwrap()),
-                                "16" => Token::U16Lit(self.raw_input[start..=end].parse().unwrap()),
-                                "32" => Token::U32Lit(self.raw_input[start..=end].parse().unwrap()),
-                                "64" => Token::U64Lit(self.raw_input[start..=end].parse().unwrap()),
+                                "8" => Token::U8Lit(self.raw_input[start..=digit_end].parse().unwrap()),
+                                "16" => Token::U16Lit(self.raw_input[start..=digit_end].parse().unwrap()),
+                                "32" => Token::U32Lit(self.raw_input[start..=digit_end].parse().unwrap()),
+                                "64" => Token::U64Lit(self.raw_input[start..=digit_end].parse().unwrap()),
                                 _ => return Err(LexerError::Error {
                                     message: "Invalid unsigned integer suffix".to_string(),
                                     start,
@@ -269,10 +270,10 @@ impl<'a> LexerIterator<'a> for Lexer<'a> {
                                 }
                             }
                             match suffix.as_str() {
-                                "8" => Token::I8Lit(self.raw_input[start..=end].parse().unwrap()),
-                                "16" => Token::I16Lit(self.raw_input[start..=end].parse().unwrap()),
-                                "32" => Token::I32Lit(self.raw_input[start..=end].parse().unwrap()),
-                                "64" => Token::I64Lit(self.raw_input[start..=end].parse().unwrap()),
+                                "8" => Token::I8Lit(self.raw_input[start..=digit_end].parse().unwrap()),
+                                "16" => Token::I16Lit(self.raw_input[start..=digit_end].parse().unwrap()),
+                                "32" => Token::I32Lit(self.raw_input[start..=digit_end].parse().unwrap()),
+                                "64" => Token::I64Lit(self.raw_input[start..=digit_end].parse().unwrap()),
                                 _ => return Err(LexerError::Error {
                                     message: "Invalid signed integer suffix".to_string(),
                                     start,
@@ -289,6 +290,7 @@ impl<'a> LexerIterator<'a> for Lexer<'a> {
                                     break;
                                 }
                             }
+                            let digit_end = end;
                             if let Some((_, 'f')) = self.peek_next() {
                                 let mut suffix = String::with_capacity(2);
                                 while let Some((i, c)) = self.peek_next() {
@@ -301,8 +303,8 @@ impl<'a> LexerIterator<'a> for Lexer<'a> {
                                     }
                                 }
                                 match suffix.as_str() {
-                                    "32" => Token::F32Lit(self.raw_input[start..=end].parse().unwrap()),
-                                    "64" => Token::F64Lit(self.raw_input[start..=end].parse().unwrap()),
+                                    "32" => Token::F32Lit(self.raw_input[start..=digit_end].parse().unwrap()),
+                                    "64" => Token::F64Lit(self.raw_input[start..=digit_end].parse().unwrap()),
                                     _ => return Err(LexerError::Error {
                                         message: "Invalid float suffix".to_string(),
                                         start,
