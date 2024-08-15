@@ -13,20 +13,21 @@ pub enum ParserError {
 }
 
 pub struct Parser<'a> {
-    tokens: std::iter::Peekable<Lexer<'a>>,
+    lexer: Lexer<'a>,
 }
 
 
 impl<'a> Parser<'a> {
     pub fn new(input: &'a str) -> Parser<'a> {
+        let lexer = Lexer::new(input);
         Parser {
-            tokens: Lexer::new(input).peekable(),
+            lexer,
         }
     }
 
     pub fn next(&mut self) -> ParseResult<SpannedToken> {
-        let token = self.tokens.next();
-        match token {
+        let next = self.lexer.next();
+        match next {
             Some(token) => {
                 match token {
                     Ok(token) => Ok(token),
@@ -43,7 +44,7 @@ impl<'a> Parser<'a> {
     }
 
     pub fn peek(&mut self) -> ParseResult<&SpannedToken> {
-        match self.tokens.peek() {
+        match self.lexer.peek() {
             Some(token) => {
                 match token {
                     Ok(token) => Ok(token),
@@ -110,36 +111,49 @@ impl<'a> Parser<'a> {
         }
         if let Ok(SpannedToken { token: Token::Let, start, .. }) = self.peek() {
             let start = *start;
-            self.next()?;
-            let pattern = self.parse_pattern()?;
-            let ty = self.parse_type()?;
-            let Ok(SpannedToken { token: Token::Assign, .. }) = self.next() else {
-                return Err(ParserError::Error {
-                    message: "Expected assignment operator".to_string(),
-                    column: 0,
-                    line: 0,
-                });
-            };
-            let expression = self.parse_expression()?;
-            let Ok(SpannedToken { token: Token::Semicolon, end, .. }) = self.next() else {
-                return Err(ParserError::Error {
-                    message: "Expected semicolon".to_string(),
-                    column: 0,
-                    line: 0,
-                });
-            };
-            return Ok(SpannedStatement {
-                statement: Statement::LetStatement {
-                    binding: pattern,
-                    type_annotation: ty,
-                    expression,
-                },
-                start,
-                end,
-            });
+            return self.parse_let_statement(start);
         }
 
         todo!("Implement remaining statements")
+    }
+
+    fn parse_let_statement(&mut self, start: usize) -> ParseResult<SpannedStatement> {
+        let Ok(SpannedToken { token: Token::Let, start, .. }) = self.next() else {
+            let (line, column) = self.lexer.get_coord_from_pos(start);
+            return Err(ParserError::Error {
+                message: "Expected let keyword".to_string(),
+                column,
+                line,
+            });
+        };
+        let pattern = self.parse_pattern()?;
+        let ty = self.parse_type()?;
+        let Ok(SpannedToken { token: Token::Assign, start, .. }) = self.next() else {
+            let (line, column) = self.lexer.get_coord_from_pos(start);
+            return Err(ParserError::Error {
+                message: "Expected assignment operator".to_string(),
+                column,
+                line,
+            });
+        };
+        let expression = self.parse_expression()?;
+        let Ok(SpannedToken { token: Token::Semicolon, end, start }) = self.next() else {
+            let (line, column) = self.lexer.get_coord_from_pos(start);
+            return Err(ParserError::Error {
+                message: "Expected semicolon".to_string(),
+                column,
+                line,
+            });
+        };
+        Ok(SpannedStatement {
+            statement: Statement::LetStatement {
+                binding: pattern,
+                type_annotation: ty,
+                expression,
+            },
+            start,
+            end,
+        })
     }
 
     fn parse_pattern(&mut self) -> ParseResult<SpannedPattern> {
@@ -495,12 +509,15 @@ impl<'a> Parser<'a> {
                     end
                 })
             }
-            x => {
-                println!("{:?}", x);
+            SpannedToken { token, start, .. } => {
+                println!("{:?}", token);
+                let start = *start;
+                drop(token);
+                let (line, column) = self.lexer.get_coord_from_pos(start);
                 Err(ParserError::Error {
                     message: "Expected primary expression".to_string(),
-                    column: 0,
-                    line: 0,
+                    column,
+                    line,
                 })
             }
         }
@@ -513,12 +530,22 @@ impl<'a> Parser<'a> {
         let Ok(SpannedToken { token: Token::Colon, .. }) = self.peek() else {
             return Ok(None);
         };
-        let SpannedToken { .. } = self.next()?;
-        let Ok(SpannedToken { token: Token::TypeIdentifier(id), start, end }) = self.next() else {
+        let SpannedToken { end, .. } = self.next()?;
+        let Ok(SpannedToken { token: _, start, end: _ }) = self.peek() else {
+            let (line, column) = self.lexer.get_coord_from_pos(end);
             return Err(ParserError::Error {
                 message: "Expected type identifier".to_string(),
-                column: 0,
-                line: 0,
+                column,
+                line,
+            });
+        };
+        let start = *start;
+        let Ok(SpannedToken { token: Token::TypeIdentifier(id), start, end }) = self.next() else {
+            let (line, column) = self.lexer.get_coord_from_pos(start);
+            return Err(ParserError::Error {
+                message: "Expected type identifier".to_string(),
+                column,
+                line,
             });
         };
         match id {

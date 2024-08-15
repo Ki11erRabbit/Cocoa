@@ -108,6 +108,24 @@ pub struct Lexer<'a> {
     raw_input: &'a str,
     input: std::iter::Peekable<CharIndices<'a>>,
     newline_pos: Vec<usize>,
+    peeked: Option<LexerResult<'a>>,
+}
+
+impl Lexer<'_> {
+    /// Get the line and column of a position in the input string
+    pub fn get_coord_from_pos(&self, pos: usize) -> (usize, usize) {
+        let mut line = 0;
+        let mut column = 0;
+        for (i, newline_pos) in self.newline_pos.iter().enumerate() {
+            if pos < *newline_pos {
+                column = pos - self.newline_pos[i - 1];
+                break;
+            }
+            line += 1;
+        }
+        (line, column)
+    }
+
 }
 
 impl<'a> Lexer<'a> {
@@ -116,11 +134,19 @@ impl<'a> Lexer<'a> {
             raw_input: input,
             input: input.char_indices().peekable(),
             newline_pos: vec![0],
+            peeked: None,
         }
     }
 
     pub fn get_current_line(&self) -> usize {
         self.newline_pos.last().unwrap().clone() + 1
+    }
+
+    pub fn peek(&mut self) -> Option<&LexerResult<'a>> {
+        if self.peeked.is_none() {
+            self.peeked = Some(self.next_token());
+        }
+        self.peeked.as_ref()
     }
 }
 
@@ -128,7 +154,11 @@ impl<'a> Iterator for Lexer<'a> {
     type Item = LexerResult<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        Some(self.next_token())
+        if let Some(peeked) = self.peeked.take() {
+            Some(peeked)
+        } else {
+            Some(self.next_token())
+        }
     }
 }
 
