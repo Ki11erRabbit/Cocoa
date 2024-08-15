@@ -80,6 +80,46 @@ impl<'a> Parser<'a> {
         }
         Ok(statements)
     }
+
+    pub fn parse_block(&mut self) -> ParseResult<Vec<SpannedStatement>> {
+        let Ok(SpannedToken { start, end, .. }) = self.peek() else {
+            panic!("Unexpected EOF");
+        };
+        let start = *start;
+        let end = *end;
+        let Ok(SpannedToken { token: Token::BraceOpen, .. }) = self.next() else {
+            return Err(ParserError::new("Expected opening brace", start, end));
+        };
+        let mut body = Vec::new();
+        loop {
+            match self.peek() {
+                Ok(SpannedToken { token: Token::BraceClose, .. }) => {
+                    self.next()?;
+                    break;
+                }
+                Ok(_) => {
+                    match self.parse_statement() {
+                        Ok(statement) => {
+                            body.push(statement);
+                        }
+                        Err(ParserError::EOF) => {
+                            return Err(ParserError::new("Unexpected EOF", body.last().unwrap().end, body.last().unwrap().end));
+                        }
+                        Err(err) => {
+                            return Err(err);
+                        }
+                    }
+                }
+                Err(ParserError::EOF) => {
+                    return Err(ParserError::new("Unexpected EOF", body.last().unwrap().end, body.last().unwrap().end));
+                }
+                Err(err) => {
+                    return Err(err);
+                }
+            }
+        }
+        Ok(body)
+    }
     
 
     pub fn parse_statement(&mut self) -> ParseResult<SpannedStatement> {
@@ -115,6 +155,9 @@ impl<'a> Parser<'a> {
             let start = *start;
             let end = *end;
             return self.parse_let_statement(start, end);
+        }
+        if let Ok(SpannedToken { token: Token::While, .. }) = self.peek() {
+            return self.parse_while_statement();
         }
 
         todo!("Implement remaining statements")
@@ -165,9 +208,16 @@ impl<'a> Parser<'a> {
         todo!("Implement remaining patterns")
     }
 
+}
+
+// Expression Parsing
+impl<'a> Parser<'a> {
+    
     fn parse_expression_for_statement(&mut self) -> Option<ParseResult<SpannedExpression>> {
         match self.peek() {
             Ok(SpannedToken { token: Token::Let, .. }) |
+            Ok(SpannedToken { token: Token::While, .. }) |
+            Ok(SpannedToken { token: Token::For, .. }) |
             Ok(SpannedToken { token: Token::Semicolon, .. }) |
             Ok(SpannedToken { token: Token::Arrow, .. }) |
             Ok(SpannedToken { token: Token::FatArrow, .. }) |
@@ -508,12 +558,31 @@ impl<'a> Parser<'a> {
                 println!("{:?}", token);
                 let start = *start;
                 let end = *end;
-                drop(token);
                 Err(ParserError::new("Expected primary expression", start, end))
             }
         }
     }
 }
+
+// Loop Parsing
+impl<'a> Parser<'a> {
+    fn parse_while_statement(&mut self) -> ParseResult<SpannedStatement> {
+        let Ok(SpannedToken { token: Token::While, start, end }) = self.next() else {
+            panic!("Expected while keyword after checking that it is a while keyword");
+        };
+        let condition = self.parse_expression()?;
+        let body = self.parse_block()?;
+        return Ok(SpannedStatement {
+            statement: Statement::WhileStatement {
+                condition,
+                body,
+            },
+            start,
+            end,
+        });
+    }
+}
+
 
 // Type Parsing
 impl<'a> Parser<'a> {

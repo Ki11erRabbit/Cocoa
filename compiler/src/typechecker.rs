@@ -36,7 +36,7 @@ impl TypeError {
 
 pub struct TypeChecker {
     pub errors: Vec<TypeError>,
-    locals: HashMap<String, ast::Type>,
+    local_scope_stack: Vec<HashMap<String, ast::Type>>,
 }
 
 
@@ -44,11 +44,33 @@ impl TypeChecker {
     pub fn new() -> Self {
         Self {
             errors: Vec::new(),
-            locals: HashMap::new(),
+            local_scope_stack: Vec::new(),
         }
     }
 
+    fn push_scope(&mut self) {
+        self.local_scope_stack.push(HashMap::new());
+    }
+
+    fn pop_scope(&mut self) {
+        self.local_scope_stack.pop();
+    }
+
+    fn bind_variable(&mut self, name: String, ty: ast::Type) {
+        self.local_scope_stack.last_mut().unwrap().insert(name, ty);
+    }
+
+    fn lookup_variable(&self, name: &str) -> Option<ast::Type> {
+        for scope in self.local_scope_stack.iter().rev() {
+            if let Some(ty) = scope.get(name) {
+                return Some(*ty);
+            }
+        }
+        None
+    }
+
     pub fn check_statements(&mut self, statements: Vec<crate::ast::SpannedStatement>) -> Result<Vec<ast::SpannedStatement>, ()> {
+        self.push_scope();
         let mut checked_statements = Vec::new();
         for statement in statements {
             match self.check_statement(statement) {
@@ -56,6 +78,7 @@ impl TypeChecker {
                 Err(error) => self.errors.push(error),
             }
         }
+        self.pop_scope();
         if self.errors.is_empty() {
             Ok(checked_statements)
         } else {
@@ -69,7 +92,7 @@ impl TypeChecker {
             crate::ast::Statement::Expression(expression) => {
                 let expression_start = expression.start;
                 let expression_end = expression.end;
-                let (_, expr) = self.check_expression(expression)?;
+                let (_, expr) = self.check_expression(expression, None)?;
                 Ok(ast::SpannedStatement {
                     statement: ast::Statement::Expression(ast::SpannedExpression {
                         expression: expr,
@@ -83,7 +106,7 @@ impl TypeChecker {
             crate::ast::Statement::HangingExpression(expression) => {
                 let expression_start = expression.start;
                 let expression_end = expression.end;
-                let (_, expr) = self.check_expression(expression)?;
+                let (_, expr) = self.check_expression(expression, None)?;
                 Ok(ast::SpannedStatement {
                     statement: ast::Statement::HangingExpression(ast::SpannedExpression {
                         expression: expr,
@@ -97,13 +120,13 @@ impl TypeChecker {
             crate::ast::Statement::LetStatement { binding, type_annotation, expression } => {
                 let crate::ast::SpannedPattern { pattern, start: pattern_start, end: pattern_end } = binding;
                 if let crate::ast::Pattern::Identifier(name) = pattern {
-                    let expression_start = expression.start;
-                    let expression_end = expression.end;
-                    let (ty, expr) = self.check_expression(expression)?;
 
                     if let Some(type_annotation) = type_annotation {
                         let annotation = type_annotation.type_.into();
-                        self.locals.insert(name.clone(), annotation);
+                        let expression_start = expression.start;
+                        let expression_end = expression.end;
+                        let (ty, expr) = self.check_expression(expression, Some(annotation))?;
+                        self.bind_variable(name.clone(), ty);
                         if ty != annotation {
                             let type_error = TypeError::new(
                                 format!("Type mismatch: expected {}, found {}", annotation, ty),
@@ -114,7 +137,7 @@ impl TypeChecker {
                                 .with_additional(expression_start, expression_end, "Expression here".to_string());
                             return Err(type_error);
                         }
-                        self.locals.insert(name.clone(), ty);
+                        self.bind_variable(name.clone(), ty);
 
                         Ok(ast::SpannedStatement {
                             statement: ast::Statement::LetStatement {
@@ -144,10 +167,39 @@ impl TypeChecker {
                     todo!("Implement type checking for other patterns")
                 }
             }
+            crate::ast::Statement::WhileStatement { condition, body } => {
+                let condition_start = condition.start;
+                let condition_end = condition.end;
+                let (ty, cond) = self.check_expression(condition, None)?;
+                if ty != ast::Type::Bool {
+                    let error = TypeError::new(
+                        format!("Type mismatch: expected bool, found {}", ty),
+                        condition_start,
+                        condition_end,
+                    ).with_tip("While condition must be a boolean expression".to_string());
+                    return Err(error);
+                }
+                let checked_body = match self.check_statements(body) {
+                    Ok(statements) => statements,
+                    Err(()) => return Err(TypeError::new("Error in while loop body".to_string(), stmt_start, stmt_end)),
+                };
+                Ok(ast::SpannedStatement {
+                    statement: ast::Statement::WhileStatement {
+                        condition: ast::SpannedExpression {
+                            expression: cond,
+                            start: condition_start,
+                            end: condition_end,
+                        },
+                        body: checked_body,
+                    },
+                    start: stmt_start,
+                    end: stmt_end,
+                })
+            }
         }
     }
 
-    fn check_expression(&mut self, expression: crate::ast::SpannedExpression) -> Result<(ast::Type, ast::Expression), TypeError> {
+    fn check_expression(&mut self, expression: crate::ast::SpannedExpression, coerce_to: Option<ast::Type>) -> Result<(ast::Type, ast::Expression), TypeError> {
         let crate::ast::SpannedExpression { expression, start: expr_start, end: expr_end } = expression;
         match expression {
             crate::ast::Expression::Literal(lit) => {
@@ -164,13 +216,26 @@ impl TypeChecker {
                     crate::ast::Literal::F64(lit) => Ok((ast::Type::F64, ast::Expression::Literal(ast::Literal::F64(lit)))),
                     crate::ast::Literal::Bool(lit) => Ok((ast::Type::Bool, ast::Expression::Literal(ast::Literal::Bool(lit)))),
                     crate::ast::Literal::Char(lit) => Ok((ast::Type::Char, ast::Expression::Literal(ast::Literal::Char(lit)))),
-                    crate::ast::Literal::Int(lit) => todo!("Implement type checking for integer literals"),
+                    crate::ast::Literal::Int(lit) => match coerce_to {
+                        Some(ast::Type::I8) => Ok((ast::Type::I8, ast::Expression::Literal(ast::Literal::I8(lit as i8)))),
+                        Some(ast::Type::I16) => Ok((ast::Type::I16, ast::Expression::Literal(ast::Literal::I16(lit as i16)))),
+                        Some(ast::Type::I32) => Ok((ast::Type::I32, ast::Expression::Literal(ast::Literal::I32(lit as i32)))),
+                        Some(ast::Type::I64) => Ok((ast::Type::I64, ast::Expression::Literal(ast::Literal::I64(lit as i64)))),
+                        Some(ast::Type::U8) => Ok((ast::Type::U8, ast::Expression::Literal(ast::Literal::U8(lit as u8)))),
+                        Some(ast::Type::U16) => Ok((ast::Type::U16, ast::Expression::Literal(ast::Literal::U16(lit as u16)))),
+                        Some(ast::Type::U32) => Ok((ast::Type::U32, ast::Expression::Literal(ast::Literal::U32(lit as u32)))),
+                        Some(ast::Type::U64) => Ok((ast::Type::U64, ast::Expression::Literal(ast::Literal::U64(lit as u64)))),
+                        Some(ast::Type::F32) => Ok((ast::Type::F32, ast::Expression::Literal(ast::Literal::F32(lit as f32)))),
+                        Some(ast::Type::F64) => Ok((ast::Type::F64, ast::Expression::Literal(ast::Literal::F64(lit as f64)))),
+                        None => Ok((ast::Type::I32, ast::Expression::Literal(ast::Literal::I32(lit as i32)))),
+                        _ => todo!("Implement type coercion for other types"),
+                    }
                     _ => todo!("Implement type checking for other literals"),
                 }
             }
             crate::ast::Expression::Variable(ident) => {
-                if let Some(ty) = self.locals.get(&ident) {
-                    Ok((*ty, ast::Expression::Variable(ident)))
+                if let Some(ty) = self.lookup_variable(&ident) {
+                    Ok((ty, ast::Expression::Variable(ident)))
                 } else {
                     let error = TypeError::new(
                         format!("Variable {} not found in this scope", ident),
@@ -186,8 +251,8 @@ impl TypeChecker {
                 let right_start = right.start;
                 let right_end = right.end;
                 
-                let (left_ty, left_expr) = self.check_expression(*left)?;
-                let (right_ty, right_expr) = self.check_expression(*right)?;
+                let (left_ty, left_expr) = self.check_expression(*left, None)?;
+                let (right_ty, right_expr) = self.check_expression(*right, None)?;
 
                 //TODO: add lookup for trait impls to allow for overloading
                 match operator {

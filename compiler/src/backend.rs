@@ -288,15 +288,42 @@ impl StatementsCompiler {
                     let ty = self.compile_expression(constant_pool, expression);
                     self.bind_local(name, ty);
                 }
-            } 
+            }
+            Statement::WhileStatement { condition, body } => {
+                self.compile_while_statement(constant_pool, condition, body);
+            }
         }
+    }
+
+    fn compile_while_statement(&mut self, constant_pool: &mut ConstantPool, condition: &SpannedExpression, body: &[SpannedStatement]) {
+        self.bytecode.push(Bytecode::StartBlock);
+        self.compile_while_conditional(constant_pool, condition);
+        self.bytecode.push(Bytecode::EndBlock);
+
+        self.stack.push_frame();
+        self.bytecode.push(Bytecode::StartBlock);
+        for statement in body {
+            self.compile_statement(constant_pool, statement);
+        }
+        self.stack.pop_frame();
+
+        self.bytecode.push(Bytecode::Goto(-1));
+        self.bytecode.push(Bytecode::EndBlock);
+    }
+
+    fn compile_while_conditional(&mut self, constant_pool: &mut ConstantPool, condition: &SpannedExpression) {
+        self.compile_expression(constant_pool, condition);
+        let if_instruction = Bytecode::If(2);
+        self.bytecode.push(if_instruction);
+        let escape_instruction = Bytecode::Goto(1);
+        self.bytecode.push(escape_instruction);
     }
 
     fn compile_expression(&mut self, constant_pool: &mut ConstantPool, expr: &SpannedExpression) -> Type {
         match &expr.expression {
             Expression::BinaryExpression { left, operator, right } => {
                 let ty1 = self.compile_expression(constant_pool, left);
-                let ty2 = self.compile_expression(constant_pool, right);
+                let _ = self.compile_expression(constant_pool, right);
                 // TODO: Check that the types are compatible
                 match operator {
                     BinaryOperator::Add => {
@@ -468,6 +495,364 @@ impl StatementsCompiler {
                             _ => {}
                         }
                     }
+                    BinaryOperator::Equal => {
+                        match ty1 {
+                            Type::U8 => {
+                                self.bytecode.push(Bytecode::Equalu8);
+                            }
+                            Type::U16 => {
+                                self.bytecode.push(Bytecode::Equalu16);
+                            }
+                            Type::U32 => {
+                                self.bytecode.push(Bytecode::Equalu32);
+                            }
+                            Type::U64 => {
+                                self.bytecode.push(Bytecode::Equalu64);
+                            }
+                            Type::I8 => {
+                                self.bytecode.push(Bytecode::Equali8);
+                            }
+                            Type::I16 => {
+                                self.bytecode.push(Bytecode::Equali16);
+                            }
+                            Type::I32 => {
+                                self.bytecode.push(Bytecode::Equali32);
+                            }
+                            Type::I64 => {
+                                self.bytecode.push(Bytecode::Equali64);
+                            }
+                            Type::F32 => {
+                                self.bytecode.push(Bytecode::Equalf32);
+                            }
+                            Type::F64 => {
+                                self.bytecode.push(Bytecode::Equalf64);
+                            }
+                            _ => {}
+                        }
+                    }
+                    BinaryOperator::Or => {
+                        match ty1 {
+                            Type::U8 => {
+                                self.bytecode.push(Bytecode::Oru8);
+                            }
+                            Type::U16 => {
+                                self.bytecode.push(Bytecode::Oru16);
+                            }
+                            Type::U32 => {
+                                self.bytecode.push(Bytecode::Oru32);
+                            }
+                            Type::U64 => {
+                                self.bytecode.push(Bytecode::Oru64);
+                            }
+                            Type::I8 => {
+                                self.bytecode.push(Bytecode::Ori8);
+                            }
+                            Type::I16 => {
+                                self.bytecode.push(Bytecode::Ori16);
+                            }
+                            Type::I32 => {
+                                self.bytecode.push(Bytecode::Ori32);
+                            }
+                            Type::I64 => {
+                                self.bytecode.push(Bytecode::Ori64);
+                            }
+                            _ => {}
+                        }
+                    }
+                    BinaryOperator::And => {
+                        match ty1 {
+                            Type::U8 => {
+                                self.bytecode.push(Bytecode::Andu8);
+                            }
+                            Type::U16 => {
+                                self.bytecode.push(Bytecode::Andu16);
+                            }
+                            Type::U32 => {
+                                self.bytecode.push(Bytecode::Andu32);
+                            }
+                            Type::U64 => {
+                                self.bytecode.push(Bytecode::Andu64);
+                            }
+                            Type::I8 => {
+                                self.bytecode.push(Bytecode::Andi8);
+                            }
+                            Type::I16 => {
+                                self.bytecode.push(Bytecode::Andi16);
+                            }
+                            Type::I32 => {
+                                self.bytecode.push(Bytecode::Andi32);
+                            }
+                            Type::I64 => {
+                                self.bytecode.push(Bytecode::Andi64);
+                            }
+                            _ => {}
+                        }
+                    }
+                    BinaryOperator::LessThan => {
+                        match ty1 {
+                            Type::U8 => {
+                                self.bytecode.push(Bytecode::Lessu8);
+                            }
+                            Type::U16 => {
+                                self.bytecode.push(Bytecode::Lessu16);
+                            }
+                            Type::U32 => {
+                                self.bytecode.push(Bytecode::Lessu32);
+                            }
+                            Type::U64 => {
+                                self.bytecode.push(Bytecode::Lessu64);
+                            }
+                            Type::I8 => {
+                                self.bytecode.push(Bytecode::Lessi8);
+                            }
+                            Type::I16 => {
+                                self.bytecode.push(Bytecode::Lessi16);
+                            }
+                            Type::I32 => {
+                                self.bytecode.push(Bytecode::Lessi32);
+                            }
+                            Type::I64 => {
+                                self.bytecode.push(Bytecode::Lessi64);
+                            }
+                            Type::F32 => {
+                                self.bytecode.push(Bytecode::Lessf32);
+                            }
+                            Type::F64 => {
+                                self.bytecode.push(Bytecode::Lessf64);
+                            }
+                            _ => {}
+                        }
+                    }
+                    BinaryOperator::LessThanOrEqual => {
+                        match ty1 {
+                            Type::U8 => {
+                                self.bytecode.push(Bytecode::Dup);
+                                self.bytecode.push(Bytecode::Lessu8);
+                                self.bytecode.push(Bytecode::Swap);
+                                self.bytecode.push(Bytecode::Equalu8);
+                                self.bytecode.push(Bytecode::Oru8);
+                            }
+                            Type::U16 => {
+                                self.bytecode.push(Bytecode::Dup);
+                                self.bytecode.push(Bytecode::Lessu16);
+                                self.bytecode.push(Bytecode::Swap);
+                                self.bytecode.push(Bytecode::Equalu16);
+                                self.bytecode.push(Bytecode::Oru8);
+                            }
+                            Type::U32 => {
+                                self.bytecode.push(Bytecode::Dup);
+                                self.bytecode.push(Bytecode::Lessu32);
+                                self.bytecode.push(Bytecode::Swap);
+                                self.bytecode.push(Bytecode::Equalu32);
+                                self.bytecode.push(Bytecode::Oru8);
+                            }
+                            Type::U64 => {
+                                self.bytecode.push(Bytecode::Dup);
+                                self.bytecode.push(Bytecode::Lessu64);
+                                self.bytecode.push(Bytecode::Swap);
+                                self.bytecode.push(Bytecode::Equalu64);
+                                self.bytecode.push(Bytecode::Oru8);
+                            }
+                            Type::I8 => {
+                                self.bytecode.push(Bytecode::Dup);
+                                self.bytecode.push(Bytecode::Lessi8);
+                                self.bytecode.push(Bytecode::Swap);
+                                self.bytecode.push(Bytecode::Equali8);
+                                self.bytecode.push(Bytecode::Oru8);
+                            }
+                            Type::I16 => {
+                                self.bytecode.push(Bytecode::Dup);
+                                self.bytecode.push(Bytecode::Lessi16);
+                                self.bytecode.push(Bytecode::Swap);
+                                self.bytecode.push(Bytecode::Equali16);
+                                self.bytecode.push(Bytecode::Oru8);
+                            }
+                            Type::I32 => {
+                                self.bytecode.push(Bytecode::Dup);
+                                self.bytecode.push(Bytecode::Lessi32);
+                                self.bytecode.push(Bytecode::Swap);
+                                self.bytecode.push(Bytecode::Equali32);
+                                self.bytecode.push(Bytecode::Oru8);
+                            }
+                            Type::I64 => {
+                                self.bytecode.push(Bytecode::Dup);
+                                self.bytecode.push(Bytecode::Lessi64);
+                                self.bytecode.push(Bytecode::Swap);
+                                self.bytecode.push(Bytecode::Equali64);
+                                self.bytecode.push(Bytecode::Oru8);
+                            }
+                            Type::F32 => {
+                                self.bytecode.push(Bytecode::Dup);
+                                self.bytecode.push(Bytecode::Lessf32);
+                                self.bytecode.push(Bytecode::Swap);
+                                self.bytecode.push(Bytecode::Equalf32);
+                                self.bytecode.push(Bytecode::Oru8);
+                            }
+                            Type::F64 => {
+                                self.bytecode.push(Bytecode::Dup);
+                                self.bytecode.push(Bytecode::Lessf64);
+                                self.bytecode.push(Bytecode::Swap);
+                                self.bytecode.push(Bytecode::Equalf64);
+                                self.bytecode.push(Bytecode::Oru8);
+                            }
+                            _ => {}
+                        }
+                    }
+                    BinaryOperator::GreaterThan => {
+                        match ty1 {
+                            Type::U8 => {
+                                self.bytecode.push(Bytecode::Greateru8);
+                            }
+                            Type::U16 => {
+                                self.bytecode.push(Bytecode::Greateru16);
+                            }
+                            Type::U32 => {
+                                self.bytecode.push(Bytecode::Greateru32);
+                            }
+                            Type::U64 => {
+                                self.bytecode.push(Bytecode::Greateru64);
+                            }
+                            Type::I8 => {
+                                self.bytecode.push(Bytecode::Greateri8);
+                            }
+                            Type::I16 => {
+                                self.bytecode.push(Bytecode::Greateri16);
+                            }
+                            Type::I32 => {
+                                self.bytecode.push(Bytecode::Greateri32);
+                            }
+                            Type::I64 => {
+                                self.bytecode.push(Bytecode::Greateri64);
+                            }
+                            Type::F32 => {
+                                self.bytecode.push(Bytecode::Greaterf32);
+                            }
+                            Type::F64 => {
+                                self.bytecode.push(Bytecode::Greaterf64);
+                            }
+                            _ => {}
+                        }
+                    }
+                    BinaryOperator::GreaterThanOrEqual => {
+                        match ty1 {
+                            Type::U8 => {
+                                self.bytecode.push(Bytecode::Dup);
+                                self.bytecode.push(Bytecode::Greateru8);
+                                self.bytecode.push(Bytecode::Swap);
+                                self.bytecode.push(Bytecode::Equalu8);
+                                self.bytecode.push(Bytecode::Oru8);
+                            }
+                            Type::U16 => {
+                                self.bytecode.push(Bytecode::Dup);
+                                self.bytecode.push(Bytecode::Greateru16);
+                                self.bytecode.push(Bytecode::Swap);
+                                self.bytecode.push(Bytecode::Equalu16);
+                                self.bytecode.push(Bytecode::Oru8);
+                            }
+                            Type::U32 => {
+                                self.bytecode.push(Bytecode::Dup);
+                                self.bytecode.push(Bytecode::Greateru32);
+                                self.bytecode.push(Bytecode::Swap);
+                                self.bytecode.push(Bytecode::Equalu32);
+                                self.bytecode.push(Bytecode::Oru8);
+                            }
+                            Type::U64 => {
+                                self.bytecode.push(Bytecode::Dup);
+                                self.bytecode.push(Bytecode::Greateru64);
+                                self.bytecode.push(Bytecode::Swap);
+                                self.bytecode.push(Bytecode::Equalu64);
+                                self.bytecode.push(Bytecode::Oru8);
+                            }
+                            Type::I8 => {
+                                self.bytecode.push(Bytecode::Dup);
+                                self.bytecode.push(Bytecode::Greateri8);
+                                self.bytecode.push(Bytecode::Swap);
+                                self.bytecode.push(Bytecode::Equali8);
+                                self.bytecode.push(Bytecode::Oru8);
+                            }
+                            Type::I16 => {
+                                self.bytecode.push(Bytecode::Dup);
+                                self.bytecode.push(Bytecode::Greateri16);
+                                self.bytecode.push(Bytecode::Swap);
+                                self.bytecode.push(Bytecode::Equali16);
+                                self.bytecode.push(Bytecode::Oru8);
+                            }
+                            Type::I32 => {
+                                self.bytecode.push(Bytecode::Dup);
+                                self.bytecode.push(Bytecode::Greateri32);
+                                self.bytecode.push(Bytecode::Swap);
+                                self.bytecode.push(Bytecode::Equali32);
+                                self.bytecode.push(Bytecode::Oru8);
+                            }
+                            Type::I64 => {
+                                self.bytecode.push(Bytecode::Dup);
+                                self.bytecode.push(Bytecode::Greateri64);
+                                self.bytecode.push(Bytecode::Swap);
+                                self.bytecode.push(Bytecode::Equali64);
+                                self.bytecode.push(Bytecode::Oru8);
+                            }
+                            Type::F32 => {
+                                self.bytecode.push(Bytecode::Dup);
+                                self.bytecode.push(Bytecode::Greaterf32);
+                                self.bytecode.push(Bytecode::Swap);
+                                self.bytecode.push(Bytecode::Equalf32);
+                                self.bytecode.push(Bytecode::Oru8);
+                            }
+                            Type::F64 => {
+                                self.bytecode.push(Bytecode::Dup);
+                                self.bytecode.push(Bytecode::Greaterf64);
+                                self.bytecode.push(Bytecode::Swap);
+                                self.bytecode.push(Bytecode::Equalf64);
+                                self.bytecode.push(Bytecode::Oru8);
+                            }
+                            _ => {}
+                        }
+                    }
+                    BinaryOperator::NotEqual => {
+                        match ty1 {
+                            Type::U8 => {
+                                self.bytecode.push(Bytecode::Equalu8);
+                                self.bytecode.push(Bytecode::Notu8);
+                            }
+                            Type::U16 => {
+                                self.bytecode.push(Bytecode::Equalu16);
+                                self.bytecode.push(Bytecode::Notu8);
+                            }
+                            Type::U32 => {
+                                self.bytecode.push(Bytecode::Equalu32);
+                                self.bytecode.push(Bytecode::Notu8);
+                            }
+                            Type::U64 => {
+                                self.bytecode.push(Bytecode::Equalu64);
+                                self.bytecode.push(Bytecode::Notu8);
+                            }
+                            Type::I8 => {
+                                self.bytecode.push(Bytecode::Equali8);
+                                self.bytecode.push(Bytecode::Notu8);
+                            }
+                            Type::I16 => {
+                                self.bytecode.push(Bytecode::Equali16);
+                                self.bytecode.push(Bytecode::Notu8);
+                            }
+                            Type::I32 => {
+                                self.bytecode.push(Bytecode::Equali32);
+                                self.bytecode.push(Bytecode::Notu8);
+                            }
+                            Type::I64 => {
+                                self.bytecode.push(Bytecode::Equali64);
+                                self.bytecode.push(Bytecode::Notu8);
+                            }
+                            Type::F32 => {
+                                self.bytecode.push(Bytecode::Equalf32);
+                                self.bytecode.push(Bytecode::Notu8);
+                            }
+                            Type::F64 => {
+                                self.bytecode.push(Bytecode::Equalf64);
+                                self.bytecode.push(Bytecode::Notu8);
+                            }
+                            _ => {}
+                        }
+                    }
                     _ => todo!("binary operator {:?}", operator),
                 }
                 ty1
@@ -590,11 +975,6 @@ impl StatementsCompiler {
                         self.bytecode.push(Bytecode::LoadConstant(index));
                         Type::I64
                     }
-                    crate::typechecker::ast::Literal::Int(value) => {
-                        let index = constant_pool.add_constant(Value::I64((*value) as i64));
-                        self.bytecode.push(Bytecode::LoadConstant(index));
-                        Type::I64
-                    }
                     crate::typechecker::ast::Literal::F32(value) => {
                         let index = constant_pool.add_constant(Value::F32(*value));
                         self.bytecode.push(Bytecode::LoadConstant(index));
@@ -669,27 +1049,6 @@ impl IntoBinary for Bytecode {
                 bytes.extend_from_slice(&offset.to_le_bytes());
             }
             Bytecode::If(offset) => {
-                bytes.extend_from_slice(&offset.to_le_bytes());
-            }
-            Bytecode::IfNot(offset) => {
-                bytes.extend_from_slice(&offset.to_le_bytes());
-            }
-            Bytecode::IfGreater(offset) => {
-                bytes.extend_from_slice(&offset.to_le_bytes());
-            }
-            Bytecode::IfGreaterEqual(offset) => {
-                bytes.extend_from_slice(&offset.to_le_bytes());
-            }
-            Bytecode::IfLess(offset) => {
-                bytes.extend_from_slice(&offset.to_le_bytes());
-            }
-            Bytecode::IfLessEqual(offset) => {
-                bytes.extend_from_slice(&offset.to_le_bytes());
-            }
-            Bytecode::IfNull(offset) => {
-                bytes.extend_from_slice(&offset.to_le_bytes());
-            }
-            Bytecode::IfNotNull(offset) => {
                 bytes.extend_from_slice(&offset.to_le_bytes());
             }
             Bytecode::InvokeFunction(symbol) => {

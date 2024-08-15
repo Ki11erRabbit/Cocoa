@@ -44,6 +44,10 @@ pub enum Statement {
         type_annotation: Option<SpannedType>,
         expression: SpannedExpression,
     },
+    WhileStatement {
+        condition: SpannedExpression,
+        body: Vec<SpannedStatement>,
+    },
 }
 
 #[derive(Debug, PartialEq, PartialOrd, Clone)]

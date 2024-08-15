@@ -19,6 +19,21 @@ pub enum Constant {
     Char(char),
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum Type {
+    U8,
+    U16,
+    U32,
+    U64,
+    I8,
+    I16,
+    I32,
+    I64,
+    F32,
+    F64,
+    Char,
+}
+
 
 pub struct ConstantPool {
     constants: Vec<Constant>,
@@ -165,8 +180,9 @@ pub struct FunctionTranslator<'a> {
     module: &'a mut JITModule,
     constants: &'a ConstantPool,
     bytecode: &'a Vec<Bytecode>,
-    locals: [Value; 256],
+    locals: Vec<Vec<(Variable, Type)>>,
     stack: Vec<Value>,
+    arguments: Vec<Value>,
 }
 
 impl<'a> FunctionTranslator<'a> {
@@ -177,12 +193,22 @@ impl<'a> FunctionTranslator<'a> {
             module,
             constants,
             bytecode,
-            locals: [Value::from_u32(0); 256],
+            locals: vec![Vec::new(); 256],
             stack: Vec::new(),
+            arguments: Vec::new(),
         }
     }
 
     pub fn translate(&mut self) {
+        let entry_block = self.builder.create_block();
+        self.builder.append_block_params_for_function_params(entry_block);
+        self.builder.switch_to_block(entry_block);
+        self.builder.seal_block(entry_block);
+        // TODO: check type of arguments and load arguments into variables
+        self.translate_block(entry_block);
+    }
+
+    fn translate_block(&mut self, current_block: Block) {
         for code in self.bytecode {
             match code {
                 Bytecode::LoadConstant(pos) => {
@@ -258,6 +284,7 @@ impl<'a> FunctionTranslator<'a> {
                 }
                 Bytecode::StoreLocal(index) => {
                     let val = self.stack.pop().unwrap();
+                    self.locals[*index as usize].push((val, Type::I64));
                     self.locals[*index as usize] = val;
                 }
                 Bytecode::LoadLocal(index) => {
@@ -265,7 +292,8 @@ impl<'a> FunctionTranslator<'a> {
                     self.stack.push(val);
                 }
                 Bytecode::StoreArgument => {
-                    unimplemented!();
+                    let val = self.stack.pop().unwrap();
+                    self.arguments.push(val);
                 }
                 Bytecode::Addu8 => {
                     let val1 = self.stack.pop().unwrap();
@@ -885,6 +913,194 @@ impl<'a> FunctionTranslator<'a> {
                     let val = self.builder.ins().fneg(val);
                     self.stack.push(val);
                 }
+                Bytecode::Equalu8 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().icmp(IntCC::Equal, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::Equalu16 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().icmp(IntCC::Equal, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::Equalu32 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().icmp(IntCC::Equal, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::Equalu64 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().icmp(IntCC::Equal, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::Equali8 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().icmp(IntCC::Equal, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::Equali16 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().icmp(IntCC::Equal, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::Equali32 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().icmp(IntCC::Equal, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::Equali64 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().icmp(IntCC::Equal, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::Equalf32 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().fcmp(FloatCC::Equal, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::Equalf64 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().fcmp(FloatCC::Equal, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::Greateru8 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().icmp(IntCC::UnsignedGreaterThan, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::Greateru16 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().icmp(IntCC::UnsignedGreaterThan, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::Greateru32 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().icmp(IntCC::UnsignedGreaterThan, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::Greateru64 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().icmp(IntCC::UnsignedGreaterThan, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::Greateri8 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().icmp(IntCC::SignedGreaterThan, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::Greateri16 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().icmp(IntCC::SignedGreaterThan, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::Greateri32 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().icmp(IntCC::SignedGreaterThan, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::Greateri64 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().icmp(IntCC::SignedGreaterThan, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::Greaterf32 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().fcmp(FloatCC::GreaterThan, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::Greaterf64 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().fcmp(FloatCC::GreaterThan, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::Lessu8 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().icmp(IntCC::UnsignedLessThan, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::Lessu16 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().icmp(IntCC::UnsignedLessThan, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::Lessu32 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().icmp(IntCC::UnsignedLessThan, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::Lessu64 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().icmp(IntCC::UnsignedLessThan, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::Lessi8 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().icmp(IntCC::SignedLessThan, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::Lessi16 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().icmp(IntCC::SignedLessThan, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::Lessi32 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().icmp(IntCC::SignedLessThan, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::Lessi64 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().icmp(IntCC::SignedLessThan, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::Lessf32 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().fcmp(FloatCC::LessThan, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::Lessf64 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().fcmp(FloatCC::LessThan, val1, val2);
+                    self.stack.push(val);
+                }
+                // Implement convertions
+                Bytecode::Goto(offset) => {
+                }
+                Bytecode::StartBlock => {
+                    let block = self.builder.create_block();
+                    self.builder.switch_to_block(block);
+
+                }
                 Bytecode::Return => {
                     let val = self.stack.pop().unwrap();
                     self.builder.ins().return_(&[val]);
@@ -895,12 +1111,6 @@ impl<'a> FunctionTranslator<'a> {
                 _ => {
                     unimplemented!();
                 }
-                
-                
-                
-                
-                
-                
             }
         }
     }

@@ -153,16 +153,14 @@ pub enum Bytecode {
     Lessf64,
     Convert(TypeTag),
     BinaryConvert(TypeTag),
+    /// Goto the instruction at the given offset.
+    /// The offset is relative to the current block.
+    /// For example, Goto(0) will jump to the top of the current block.
     Goto(i64),
     Jump,
     If(i64),
-    IfNot(i64),
-    IfGreater(i64),
-    IfGreaterEqual(i64),
-    IfLess(i64),
-    IfLessEqual(i64),
-    IfNull(i64),
-    IfNotNull(i64),
+    StartBlock,
+    EndBlock,
     InvokeFunction(SymbolPointer),
     InvokeFunctionTail(SymbolPointer),
     InvokeTrait(SymbolPointer, SymbolPointer),
@@ -182,6 +180,7 @@ pub enum Bytecode {
 }
 
 impl Bytecode {
+    
     pub fn into_instruction(self) -> u16 {
         use Bytecode::*;
         match self {
@@ -336,13 +335,8 @@ impl Bytecode {
             Goto(_) => 148,
             Jump => 149,
             If(_) => 150,
-            IfNot(_) => 151,
-            IfGreater(_) => 152,
-            IfGreaterEqual(_) => 153,
-            IfLess(_) => 154,
-            IfLessEqual(_) => 155,
-            IfNull(_) => 156,
-            IfNotNull(_) => 157,
+            StartBlock => 151,
+            EndBlock => 152,
             InvokeFunction(_) => 158,
             InvokeFunctionTail(_) => 159,
             InvokeTrait(_, _) => 160,
@@ -533,41 +527,8 @@ impl Bytecode {
                 let offset = i64::from_le_bytes(slice);
                 If(offset)
             }
-            151 => {
-                let slice = [iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap()];
-                let offset = i64::from_le_bytes(slice);
-                IfNot(offset)
-            }
-            152 => {
-                let slice = [iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap()];
-                let offset = i64::from_le_bytes(slice);
-                IfGreater(offset)
-            }
-            153 => {
-                let slice = [iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap()];
-                let offset = i64::from_le_bytes(slice);
-                IfGreaterEqual(offset)
-            }
-            154 => {
-                let slice = [iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap()];
-                let offset = i64::from_le_bytes(slice);
-                IfLess(offset)
-            }
-            155 => {
-                let slice = [iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap()];
-                let offset = i64::from_le_bytes(slice);
-                IfLessEqual(offset)
-            }
-            156 => {
-                let slice = [iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap()];
-                let offset = i64::from_le_bytes(slice);
-                IfNull(offset)
-            }
-            157 => {
-                let slice = [iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap()];
-                let offset = i64::from_le_bytes(slice);
-                IfNotNull(offset)
-            }
+            151 => StartBlock,
+            152 => EndBlock,
             158 => {
                 let slice = [iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap()];
                 let symbol_pointer = u64::from_le_bytes(slice);
