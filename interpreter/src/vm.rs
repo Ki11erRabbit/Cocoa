@@ -149,6 +149,7 @@ impl Jit {
     pub fn run(&mut self, block_count: u64) {
         let code = self.compile(block_count).unwrap();
 
+        println!("Running code...");
         unsafe {
             let func: fn() -> i64 = std::mem::transmute(code);
             let res = func();
@@ -250,6 +251,7 @@ impl<'a> FunctionTranslator<'a> {
     fn translate_block(&mut self, bytecode: impl Iterator<Item = &'a Bytecode>) {
         let mut bytecode = bytecode;
         while let Some(code) = bytecode.next() {
+            println!("{:?}", code);
             match code {
                 Bytecode::LoadConstant(pos) => {
                     let constant = self.constants.constants[*pos as usize];
@@ -1151,6 +1153,186 @@ impl<'a> FunctionTranslator<'a> {
                     let val1 = self.stack.pop().unwrap();
                     let val2 = self.stack.pop().unwrap();
                     let val = self.builder.ins().fcmp(FloatCC::LessThan, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::NotEqualu8 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().icmp(IntCC::NotEqual, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::NotEqualu16 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().icmp(IntCC::NotEqual, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::NotEqualu32 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().icmp(IntCC::NotEqual, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::NotEqualu64 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().icmp(IntCC::NotEqual, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::NotEquali8 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().icmp(IntCC::NotEqual, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::NotEquali16 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().icmp(IntCC::NotEqual, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::NotEquali32 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().icmp(IntCC::NotEqual, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::NotEquali64 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().icmp(IntCC::NotEqual, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::NotEqualf32 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().fcmp(FloatCC::NotEqual, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::NotEqualf64 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().fcmp(FloatCC::NotEqual, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::LessOrEqualu8 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().icmp(IntCC::UnsignedLessThanOrEqual, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::LessOrEqualu16 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().icmp(IntCC::UnsignedLessThanOrEqual, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::LessOrEqualu32 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().icmp(IntCC::UnsignedLessThanOrEqual, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::LessOrEqualu64 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().icmp(IntCC::UnsignedLessThanOrEqual, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::LessOrEquali8 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().icmp(IntCC::SignedLessThanOrEqual, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::LessOrEquali16 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().icmp(IntCC::SignedLessThanOrEqual, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::LessOrEquali32 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().icmp(IntCC::SignedLessThanOrEqual, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::LessOrEquali64 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().icmp(IntCC::SignedLessThanOrEqual, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::LessOrEqualf32 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().fcmp(FloatCC::LessThanOrEqual, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::LessOrEqualf64 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().fcmp(FloatCC::LessThanOrEqual, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::GreaterOrEqualu8 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().icmp(IntCC::UnsignedGreaterThanOrEqual, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::GreaterOrEqualu16 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().icmp(IntCC::UnsignedGreaterThanOrEqual, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::GreaterOrEqualu32 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().icmp(IntCC::UnsignedGreaterThanOrEqual, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::GreaterOrEqualu64 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().icmp(IntCC::UnsignedGreaterThanOrEqual, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::GreaterOrEquali8 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().icmp(IntCC::SignedGreaterThanOrEqual, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::GreaterOrEquali16 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().icmp(IntCC::SignedGreaterThanOrEqual, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::GreaterOrEquali32 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().icmp(IntCC::SignedGreaterThanOrEqual, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::GreaterOrEquali64 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().icmp(IntCC::SignedGreaterThanOrEqual, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::GreaterOrEqualf32 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().fcmp(FloatCC::GreaterThanOrEqual, val1, val2);
+                    self.stack.push(val);
+                }
+                Bytecode::GreaterOrEqualf64 => {
+                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.stack.pop().unwrap();
+                    let val = self.builder.ins().fcmp(FloatCC::GreaterThanOrEqual, val1, val2);
                     self.stack.push(val);
                 }
                 // Implement convertions

@@ -152,6 +152,36 @@ pub enum Bytecode {
     Lessi64,
     Lessf32,
     Lessf64,
+    NotEqualu8,
+    NotEqualu16,
+    NotEqualu32,
+    NotEqualu64,
+    NotEquali8,
+    NotEquali16,
+    NotEquali32,
+    NotEquali64,
+    NotEqualf32,
+    NotEqualf64,
+    LessOrEqualu8,
+    LessOrEqualu16,
+    LessOrEqualu32,
+    LessOrEqualu64,
+    LessOrEquali8,
+    LessOrEquali16,
+    LessOrEquali32,
+    LessOrEquali64,
+    LessOrEqualf32,
+    LessOrEqualf64,
+    GreaterOrEqualu8,
+    GreaterOrEqualu16,
+    GreaterOrEqualu32,
+    GreaterOrEqualu64,
+    GreaterOrEquali8,
+    GreaterOrEquali16,
+    GreaterOrEquali32,
+    GreaterOrEquali64,
+    GreaterOrEqualf32,
+    GreaterOrEqualf64,
     Convert(TypeTag),
     BinaryConvert(TypeTag),
     /// Goto the instruction at the given offset.
@@ -330,28 +360,58 @@ impl Bytecode {
             Lessi64 => 143,
             Lessf32 => 144,
             Lessf64 => 145,
-            Convert(_) => 146,
-            BinaryConvert(_) => 147,
-            Goto(_) => 148,
-            Jump => 149,
-            If(_, _) => 150,
-            StartBlock(_) => 151,
-            InvokeFunction(_) => 158,
-            InvokeFunctionTail(_) => 159,
-            InvokeTrait(_, _) => 160,
-            InvokeTraitTail(_, _) => 161,
-            Return => 162,
-            ReturnUnit => 163,
-            CreateStruct(_) => 164,
-            CreateEnum(_) => 165,
-            IsA(_) => 166,
-            GetField(_, _) => 167,
-            SetField(_, _) => 168,
-            CreateArray(_) => 169,
-            ArrayGet(_) => 170,
-            ArraySet(_) => 171,
-            Breakpoint => 172,
-            Nop => 173,
+            NotEqualu8 => 146,
+            NotEqualu16 => 147,
+            NotEqualu32 => 148,
+            NotEqualu64 => 149,
+            NotEquali8 => 150,
+            NotEquali16 => 151,
+            NotEquali32 => 152,
+            NotEquali64 => 153,
+            NotEqualf32 => 154,
+            NotEqualf64 => 155,
+            LessOrEqualu8 => 156,
+            LessOrEqualu16 => 157,
+            LessOrEqualu32 => 158,
+            LessOrEqualu64 => 159,
+            LessOrEquali8 => 160,
+            LessOrEquali16 => 161,
+            LessOrEquali32 => 162,
+            LessOrEquali64 => 163,
+            LessOrEqualf32 => 164,
+            LessOrEqualf64 => 165,
+            GreaterOrEqualu8 => 166,
+            GreaterOrEqualu16 => 167,
+            GreaterOrEqualu32 => 168,
+            GreaterOrEqualu64 => 169,
+            GreaterOrEquali8 => 170,
+            GreaterOrEquali16 => 171,
+            GreaterOrEquali32 => 172,
+            GreaterOrEquali64 => 173,
+            GreaterOrEqualf32 => 174,
+            GreaterOrEqualf64 => 175,
+            Convert(_) => 176,
+            BinaryConvert(_) => 177,
+            Goto(_) => 178,
+            Jump => 179,
+            If(_, _) => 180,
+            StartBlock(_) => 181,
+            InvokeFunction(_) => 182,
+            InvokeFunctionTail(_) => 183,
+            InvokeTrait(_, _) => 184,
+            InvokeTraitTail(_, _) => 185,
+            Return => 186,
+            ReturnUnit => 187,
+            CreateStruct(_) => 188,
+            CreateEnum(_) => 189,
+            IsA(_) => 190,
+            GetField(_, _) => 191,
+            SetField(_, _) => 192,
+            CreateArray(_) => 193,
+            ArrayGet(_) => 194,
+            ArraySet(_) => 195,
+            Breakpoint => 196,
+            Nop => 197,
         }
     }
 
@@ -513,82 +573,112 @@ impl Bytecode {
             143 => Lessi64,
             144 => Lessf32,
             145 => Lessf64,
-            146 => Convert(iter.next().unwrap()),
-            147 => BinaryConvert(iter.next().unwrap()),
-            148 => {
+            146 => NotEqualu8,
+            147 => NotEqualu16,
+            148 => NotEqualu32,
+            149 => NotEqualu64,
+            150 => NotEquali8,
+            151 => NotEquali16,
+            152 => NotEquali32,
+            153 => NotEquali64,
+            154 => NotEqualf32,
+            155 => NotEqualf64,
+            156 => LessOrEqualu8,
+            157 => LessOrEqualu16,
+            158 => LessOrEqualu32,
+            159 => LessOrEqualu64,
+            160 => LessOrEquali8,
+            161 => LessOrEquali16,
+            162 => LessOrEquali32,
+            163 => LessOrEquali64,
+            164 => LessOrEqualf32,
+            165 => LessOrEqualf64,
+            166 => GreaterOrEqualu8,
+            167 => GreaterOrEqualu16,
+            168 => GreaterOrEqualu32,
+            169 => GreaterOrEqualu64,
+            170 => GreaterOrEquali8,
+            171 => GreaterOrEquali16,
+            172 => GreaterOrEquali32,
+            173 => GreaterOrEquali64,
+            174 => GreaterOrEqualf32,
+            175 => GreaterOrEqualf64,
+            176 => Convert(iter.next().unwrap()),
+            177 => BinaryConvert(iter.next().unwrap()),
+            178 => {
                 let slice = [iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap()];
                 let blockid = u64::from_le_bytes(slice);
                 Goto(blockid)
             }
-            149 => Jump,
-            150 => {
+            179 => Jump,
+            180 => {
                 let slice = [iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap()];
                 let thenid = u64::from_le_bytes(slice);
                 let slice = [iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap()];
                 let elseid = u64::from_le_bytes(slice);
                 If(thenid, elseid)
             }
-            151 => {
+            181 => {
                 let slice = [iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap()];
                 let block_id = u64::from_le_bytes(slice);
                 StartBlock(block_id)
             }
-            158 => {
+            182 => {
                 let slice = [iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap()];
                 let symbol_pointer = u64::from_le_bytes(slice);
                 InvokeFunction(symbol_pointer)
             }
-            159 => {
+            183 => {
                 let slice = [iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap()];
                 let symbol_pointer = u64::from_le_bytes(slice);
                 InvokeFunctionTail(symbol_pointer)
             }
-            160 => {
+            184 => {
                 let slice = [iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap()];
                 let symbol_pointer = u64::from_le_bytes(slice);
                 let slice = [iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap()];
                 let trait_pointer = u64::from_le_bytes(slice);
                 InvokeTrait(symbol_pointer, trait_pointer)
             }
-            161 => {
+            185 => {
                 let slice = [iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap()];
                 let symbol_pointer = u64::from_le_bytes(slice);
                 let slice = [iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap()];
                 let trait_pointer = u64::from_le_bytes(slice);
                 InvokeTraitTail(symbol_pointer, trait_pointer)
             }
-            162 => Return,
-            163 => ReturnUnit,
-            164 => {
+            186 => Return,
+            187 => ReturnUnit,
+            188 => {
                 let slice = [iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap()];
                 let symbol_pointer = u64::from_le_bytes(slice);
                 CreateStruct(symbol_pointer)
             }
-            165 => {
+            189 => {
                 let slice = [iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap()];
                 let symbol_pointer = u64::from_le_bytes(slice);
                 CreateEnum(symbol_pointer)
             }
-            166 => {
+            190 => {
                 let slice = [iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap()];
                 let symbol_pointer = u64::from_le_bytes(slice);
                 IsA(symbol_pointer)
             }
-            167 => {
+            191 => {
                 let slice = [iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap()];
                 let offset = u64::from_le_bytes(slice);
                 GetField(offset, iter.next().unwrap())
             }
-            168 => {
+            192 => {
                 let slice = [iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap()];
                 let offset = u64::from_le_bytes(slice);
                 SetField(offset, iter.next().unwrap())
             }
-            169 => CreateArray(iter.next().unwrap()),
-            170 => ArrayGet(iter.next().unwrap()),
-            171 => ArraySet(iter.next().unwrap()),
-            172 => Breakpoint,
-            173 => Nop,
+            193 => CreateArray(iter.next().unwrap()),
+            194 => ArrayGet(iter.next().unwrap()),
+            195 => ArraySet(iter.next().unwrap()),
+            196 => Breakpoint,
+            197 => Nop,
             _ => panic!("Invalid instruction: {}", instruction),
         }
     }

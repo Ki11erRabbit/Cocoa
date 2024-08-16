@@ -223,10 +223,13 @@ impl Frame {
     }
 
     pub fn store_local(&mut self, name: &str, value: Value) -> u8 {
+        if let Some(local) = self.name_to_local.get(&(name.to_string(), value.into())) {
+            return *local;
+        }
         let local = self.next_local;
         self.next_local += 1;
         self.locals[local as usize] = value;
-        self.name_to_position.insert(name.to_string(), (local.to_string(), value.into()));
+        self.name_to_position.insert(name.to_string(), (name.to_string(), value.into()));
         self.name_to_local.insert((name.to_string(), value.into()), local);
         local
     }
@@ -306,7 +309,6 @@ impl StatementsCompiler {
     pub fn compile_statements(&mut self, constant_pool: &mut ConstantPool, statements: &[SpannedStatement]) {
         self.bytecode.push(Bytecode::StartBlock(0));
         for statement in statements {
-            println!("{:?}", statement);
             self.compile_statement(constant_pool, statement);
         }
     }
@@ -347,13 +349,13 @@ impl StatementsCompiler {
         self.bytecode.push(Bytecode::StartBlock(condition_block));
         self.compile_while_conditional(constant_pool, condition);
 
-        self.stack.push_frame();
+        //self.stack.push_frame();
         let body_block = self.add_block();
         self.bytecode.push(Bytecode::StartBlock(body_block));
         for statement in body {
             self.compile_statement(constant_pool, statement);
         }
-        self.stack.pop_frame();
+        //self.stack.pop_frame();
 
         self.bytecode.push(Bytecode::Goto(condition_block));
         let next_block = self.add_block();
@@ -673,74 +675,34 @@ impl StatementsCompiler {
                     BinaryOperator::LessThanOrEqual => {
                         match ty1 {
                             Type::U8 => {
-                                self.bytecode.push(Bytecode::Dup);
-                                self.bytecode.push(Bytecode::Lessu8);
-                                self.bytecode.push(Bytecode::Swap);
-                                self.bytecode.push(Bytecode::Equalu8);
-                                self.bytecode.push(Bytecode::Oru8);
+                                self.bytecode.push(Bytecode::LessOrEqualu8);
                             }
                             Type::U16 => {
-                                self.bytecode.push(Bytecode::Dup);
-                                self.bytecode.push(Bytecode::Lessu16);
-                                self.bytecode.push(Bytecode::Swap);
-                                self.bytecode.push(Bytecode::Equalu16);
-                                self.bytecode.push(Bytecode::Oru8);
+                                self.bytecode.push(Bytecode::LessOrEqualu16);
                             }
                             Type::U32 => {
-                                self.bytecode.push(Bytecode::Dup);
-                                self.bytecode.push(Bytecode::Lessu32);
-                                self.bytecode.push(Bytecode::Swap);
-                                self.bytecode.push(Bytecode::Equalu32);
-                                self.bytecode.push(Bytecode::Oru8);
+                                self.bytecode.push(Bytecode::LessOrEqualu32);
                             }
                             Type::U64 => {
-                                self.bytecode.push(Bytecode::Dup);
-                                self.bytecode.push(Bytecode::Lessu64);
-                                self.bytecode.push(Bytecode::Swap);
-                                self.bytecode.push(Bytecode::Equalu64);
-                                self.bytecode.push(Bytecode::Oru8);
+                                self.bytecode.push(Bytecode::LessOrEqualu64);
                             }
                             Type::I8 => {
-                                self.bytecode.push(Bytecode::Dup);
-                                self.bytecode.push(Bytecode::Lessi8);
-                                self.bytecode.push(Bytecode::Swap);
-                                self.bytecode.push(Bytecode::Equali8);
-                                self.bytecode.push(Bytecode::Oru8);
+                                self.bytecode.push(Bytecode::LessOrEquali8);
                             }
                             Type::I16 => {
-                                self.bytecode.push(Bytecode::Dup);
-                                self.bytecode.push(Bytecode::Lessi16);
-                                self.bytecode.push(Bytecode::Swap);
-                                self.bytecode.push(Bytecode::Equali16);
-                                self.bytecode.push(Bytecode::Oru8);
+                                self.bytecode.push(Bytecode::LessOrEquali16);
                             }
                             Type::I32 => {
-                                self.bytecode.push(Bytecode::Dup);
-                                self.bytecode.push(Bytecode::Lessi32);
-                                self.bytecode.push(Bytecode::Swap);
-                                self.bytecode.push(Bytecode::Equali32);
-                                self.bytecode.push(Bytecode::Oru8);
+                                self.bytecode.push(Bytecode::LessOrEquali32);
                             }
                             Type::I64 => {
-                                self.bytecode.push(Bytecode::Dup);
-                                self.bytecode.push(Bytecode::Lessi64);
-                                self.bytecode.push(Bytecode::Swap);
-                                self.bytecode.push(Bytecode::Equali64);
-                                self.bytecode.push(Bytecode::Oru8);
+                                self.bytecode.push(Bytecode::LessOrEquali64);
                             }
                             Type::F32 => {
-                                self.bytecode.push(Bytecode::Dup);
-                                self.bytecode.push(Bytecode::Lessf32);
-                                self.bytecode.push(Bytecode::Swap);
-                                self.bytecode.push(Bytecode::Equalf32);
-                                self.bytecode.push(Bytecode::Oru8);
+                                self.bytecode.push(Bytecode::LessOrEqualf32);
                             }
                             Type::F64 => {
-                                self.bytecode.push(Bytecode::Dup);
-                                self.bytecode.push(Bytecode::Lessf64);
-                                self.bytecode.push(Bytecode::Swap);
-                                self.bytecode.push(Bytecode::Equalf64);
-                                self.bytecode.push(Bytecode::Oru8);
+                                self.bytecode.push(Bytecode::LessOrEqualf64);
                             }
                             _ => {}
                         }
@@ -783,74 +745,34 @@ impl StatementsCompiler {
                     BinaryOperator::GreaterThanOrEqual => {
                         match ty1 {
                             Type::U8 => {
-                                self.bytecode.push(Bytecode::Dup);
-                                self.bytecode.push(Bytecode::Greateru8);
-                                self.bytecode.push(Bytecode::Swap);
-                                self.bytecode.push(Bytecode::Equalu8);
-                                self.bytecode.push(Bytecode::Oru8);
+                                self.bytecode.push(Bytecode::GreaterOrEqualu8);
                             }
                             Type::U16 => {
-                                self.bytecode.push(Bytecode::Dup);
-                                self.bytecode.push(Bytecode::Greateru16);
-                                self.bytecode.push(Bytecode::Swap);
-                                self.bytecode.push(Bytecode::Equalu16);
-                                self.bytecode.push(Bytecode::Oru8);
+                                self.bytecode.push(Bytecode::GreaterOrEqualu16);
                             }
                             Type::U32 => {
-                                self.bytecode.push(Bytecode::Dup);
-                                self.bytecode.push(Bytecode::Greateru32);
-                                self.bytecode.push(Bytecode::Swap);
-                                self.bytecode.push(Bytecode::Equalu32);
-                                self.bytecode.push(Bytecode::Oru8);
+                                self.bytecode.push(Bytecode::GreaterOrEqualu32);
                             }
                             Type::U64 => {
-                                self.bytecode.push(Bytecode::Dup);
-                                self.bytecode.push(Bytecode::Greateru64);
-                                self.bytecode.push(Bytecode::Swap);
-                                self.bytecode.push(Bytecode::Equalu64);
-                                self.bytecode.push(Bytecode::Oru8);
+                                self.bytecode.push(Bytecode::GreaterOrEqualu64);
                             }
                             Type::I8 => {
-                                self.bytecode.push(Bytecode::Dup);
-                                self.bytecode.push(Bytecode::Greateri8);
-                                self.bytecode.push(Bytecode::Swap);
-                                self.bytecode.push(Bytecode::Equali8);
-                                self.bytecode.push(Bytecode::Oru8);
+                                self.bytecode.push(Bytecode::GreaterOrEquali8);
                             }
                             Type::I16 => {
-                                self.bytecode.push(Bytecode::Dup);
-                                self.bytecode.push(Bytecode::Greateri16);
-                                self.bytecode.push(Bytecode::Swap);
-                                self.bytecode.push(Bytecode::Equali16);
-                                self.bytecode.push(Bytecode::Oru8);
+                                self.bytecode.push(Bytecode::GreaterOrEquali16);
                             }
                             Type::I32 => {
-                                self.bytecode.push(Bytecode::Dup);
-                                self.bytecode.push(Bytecode::Greateri32);
-                                self.bytecode.push(Bytecode::Swap);
-                                self.bytecode.push(Bytecode::Equali32);
-                                self.bytecode.push(Bytecode::Oru8);
+                                self.bytecode.push(Bytecode::GreaterOrEquali32);
                             }
                             Type::I64 => {
-                                self.bytecode.push(Bytecode::Dup);
-                                self.bytecode.push(Bytecode::Greateri64);
-                                self.bytecode.push(Bytecode::Swap);
-                                self.bytecode.push(Bytecode::Equali64);
-                                self.bytecode.push(Bytecode::Oru8);
+                                self.bytecode.push(Bytecode::GreaterOrEquali64);
                             }
                             Type::F32 => {
-                                self.bytecode.push(Bytecode::Dup);
-                                self.bytecode.push(Bytecode::Greaterf32);
-                                self.bytecode.push(Bytecode::Swap);
-                                self.bytecode.push(Bytecode::Equalf32);
-                                self.bytecode.push(Bytecode::Oru8);
+                                self.bytecode.push(Bytecode::GreaterOrEqualf32);
                             }
                             Type::F64 => {
-                                self.bytecode.push(Bytecode::Dup);
-                                self.bytecode.push(Bytecode::Greaterf64);
-                                self.bytecode.push(Bytecode::Swap);
-                                self.bytecode.push(Bytecode::Equalf64);
-                                self.bytecode.push(Bytecode::Oru8);
+                                self.bytecode.push(Bytecode::GreaterOrEqualf64);
                             }
                             _ => {}
                         }
@@ -858,44 +780,34 @@ impl StatementsCompiler {
                     BinaryOperator::NotEqual => {
                         match ty1 {
                             Type::U8 => {
-                                self.bytecode.push(Bytecode::Equalu8);
-                                self.bytecode.push(Bytecode::Notu8);
+                                self.bytecode.push(Bytecode::NotEqualu8);
                             }
                             Type::U16 => {
-                                self.bytecode.push(Bytecode::Equalu16);
-                                self.bytecode.push(Bytecode::Notu8);
+                                self.bytecode.push(Bytecode::NotEqualu16);
                             }
                             Type::U32 => {
-                                self.bytecode.push(Bytecode::Equalu32);
-                                self.bytecode.push(Bytecode::Notu8);
+                                self.bytecode.push(Bytecode::NotEqualu32);
                             }
                             Type::U64 => {
-                                self.bytecode.push(Bytecode::Equalu64);
-                                self.bytecode.push(Bytecode::Notu8);
+                                self.bytecode.push(Bytecode::NotEqualu64);
                             }
                             Type::I8 => {
-                                self.bytecode.push(Bytecode::Equali8);
-                                self.bytecode.push(Bytecode::Notu8);
+                                self.bytecode.push(Bytecode::NotEquali8);
                             }
                             Type::I16 => {
-                                self.bytecode.push(Bytecode::Equali16);
-                                self.bytecode.push(Bytecode::Notu8);
+                                self.bytecode.push(Bytecode::NotEquali16);
                             }
                             Type::I32 => {
-                                self.bytecode.push(Bytecode::Equali32);
-                                self.bytecode.push(Bytecode::Notu8);
+                                self.bytecode.push(Bytecode::NotEquali32);
                             }
                             Type::I64 => {
-                                self.bytecode.push(Bytecode::Equali64);
-                                self.bytecode.push(Bytecode::Notu8);
+                                self.bytecode.push(Bytecode::NotEquali64);
                             }
                             Type::F32 => {
-                                self.bytecode.push(Bytecode::Equalf32);
-                                self.bytecode.push(Bytecode::Notu8);
+                                self.bytecode.push(Bytecode::NotEqualf32);
                             }
                             Type::F64 => {
-                                self.bytecode.push(Bytecode::Equalf64);
-                                self.bytecode.push(Bytecode::Notu8);
+                                self.bytecode.push(Bytecode::NotEqualf64);
                             }
                             _ => {}
                         }
