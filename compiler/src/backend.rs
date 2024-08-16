@@ -3,7 +3,7 @@ use std::collections::HashMap;
 
 use bytecode::Bytecode;
 
-use crate::typechecker::ast::{BinaryOperator, Expression, Pattern, PrefixOperator, SpannedExpression, SpannedStatement, Statement};
+use crate::typechecker::ast::{BinaryOperator, Expression, Lhs, Pattern, PrefixOperator, SpannedExpression, SpannedStatement, Statement};
 
 
 pub trait IntoBinary {
@@ -226,6 +226,7 @@ impl Frame {
         let local = self.next_local;
         self.next_local += 1;
         self.locals[local as usize] = value;
+        self.name_to_position.insert(name.to_string(), (local.to_string(), value.into()));
         self.name_to_local.insert((name.to_string(), value.into()), local);
         local
     }
@@ -305,6 +306,7 @@ impl StatementsCompiler {
     pub fn compile_statements(&mut self, constant_pool: &mut ConstantPool, statements: &[SpannedStatement]) {
         self.bytecode.push(Bytecode::StartBlock(0));
         for statement in statements {
+            println!("{:?}", statement);
             self.compile_statement(constant_pool, statement);
         }
     }
@@ -323,6 +325,14 @@ impl StatementsCompiler {
                 if let Pattern::Identifier(name) = &binding.pattern {
                     let ty = self.compile_expression(constant_pool, expression);
                     self.bind_local(name, ty);
+                }
+            }
+            Statement::Assignment { binding, expression } => {
+                let ty = self.compile_expression(constant_pool, expression);
+                match &binding.lhs {
+                    Lhs::Variable(name) => {
+                        self.bind_local(name, ty);
+                    }
                 }
             }
             Statement::WhileStatement { condition, body } => {

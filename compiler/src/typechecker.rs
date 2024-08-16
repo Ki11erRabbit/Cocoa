@@ -167,6 +167,42 @@ impl TypeChecker {
                     todo!("Implement type checking for other patterns")
                 }
             }
+            crate::ast::Statement::Assignment { binding, expression } => {
+                let binding_start = binding.start;
+                let binding_end = binding.end;
+                let expression_start = expression.start;
+                let expression_end = expression.end;
+                let (binding_ty, binding) = self.check_binding(binding)?;
+                let (expr_ty, expr) = self.check_expression(expression, None)?;
+                if binding_ty != expr_ty {
+                    let error = TypeError::new(
+                        format!("Type mismatch: expected {}, found {}", binding_ty, expr_ty),
+                        binding_start,
+                        binding_end,
+                    ).with_tip("Both sides of the assignment must have the same type".to_string())
+                    .with_additional(binding_start, binding_end, "Binding here".to_string())
+                        .with_additional(expression_start, expression_end, "Expression here".to_string());
+                    return Err(error);
+                }
+
+                Ok(ast::SpannedStatement {
+                    statement: ast::Statement::Assignment {
+                        binding: ast::SpannedLhs {
+                            lhs: binding,
+                            start: binding_start,
+                            end: binding_end,
+                        },
+                        expression: ast::SpannedExpression {
+                            expression: expr,
+                            start: expression_start,
+                            end: expression_end,
+                        },
+                    },
+                    start: stmt_start,
+                    end: stmt_end,
+                })
+                
+            }
             crate::ast::Statement::WhileStatement { condition, body } => {
                 let condition_start = condition.start;
                 let condition_end = condition.end;
@@ -196,6 +232,25 @@ impl TypeChecker {
                     end: stmt_end,
                 })
             }
+        }
+    }
+
+    fn check_binding(&mut self, expression: crate::ast::SpannedExpression) -> Result<(ast::Type, ast::Lhs), TypeError> {
+        let crate::ast::SpannedExpression { expression, start: expr_start, end: expr_end } = expression;
+        match expression {
+            crate::ast::Expression::Variable(ident) => {
+                if let Some(ty) = self.lookup_variable(&ident) {
+                    Ok((ty, ast::Lhs::Variable(ident)))
+                } else {
+                    let error = TypeError::new(
+                        format!("Variable {} not found in this scope", ident),
+                        expr_start,
+                        expr_end,
+                    );
+                    Err(error)
+                }
+            }
+            _ => todo!("Implement binding for other expressions"),
         }
     }
 
@@ -252,7 +307,7 @@ impl TypeChecker {
                 let right_end = right.end;
                 
                 let (left_ty, left_expr) = self.check_expression(*left, None)?;
-                let (right_ty, right_expr) = self.check_expression(*right, None)?;
+                let (right_ty, right_expr) = self.check_expression(*right, Some(left_ty))?;
 
                 //TODO: add lookup for trait impls to allow for overloading
                 match operator {
@@ -274,6 +329,71 @@ impl TypeChecker {
                             };
                             let operator = operator.into();
                             Ok((left_ty, ast::Expression::BinaryExpression {
+                                left: Box::new(spanned_left),
+                                operator,
+                                right: Box::new(spanned_right),
+                            }))
+                        } else {
+                            let operator: ast::BinaryOperator = operator.into();
+                            let error = TypeError::new(
+                                format!("Type mismatch: expected {}, found {}", left_ty, right_ty),
+                                expr_start,
+                                expr_end,
+                            ).with_tip(format!("Both operands must have the same type for {}", operator))
+                                .with_additional(left_start, left_end, "Left operand here".to_string())
+                                .with_additional(right_start, right_end, "Right operand here".to_string());
+                            Err(error)
+                        }
+                    }
+                    crate::ast::BinaryOperator::Equal |
+                    crate::ast::BinaryOperator::NotEqual => {
+                        // TODO: Implement checking of trait impls for equality
+                        if left_ty == right_ty {
+                            let spanned_left = ast::SpannedExpression {
+                                expression: left_expr,
+                                start: left_start,
+                                end: left_end,
+                            };
+                            let spanned_right = ast::SpannedExpression {
+                                expression: right_expr,
+                                start: right_start,
+                                end: right_end,
+                            };
+                            let operator = operator.into();
+                            Ok((ast::Type::Bool, ast::Expression::BinaryExpression {
+                                left: Box::new(spanned_left),
+                                operator,
+                                right: Box::new(spanned_right),
+                            }))
+                        } else {
+                            let operator: ast::BinaryOperator = operator.into();
+                            let error = TypeError::new(
+                                format!("Type mismatch: expected {}, found {}", left_ty, right_ty),
+                                expr_start,
+                                expr_end,
+                            ).with_tip(format!("Both operands must have the same type for {}", operator))
+                                .with_additional(left_start, left_end, "Left operand here".to_string())
+                                .with_additional(right_start, right_end, "Right operand here".to_string());
+                            Err(error)
+                        }
+                    }
+                    crate::ast::BinaryOperator::LessThan |
+                    crate::ast::BinaryOperator::LessThanOrEqual |
+                    crate::ast::BinaryOperator::GreaterThan |
+                    crate::ast::BinaryOperator::GreaterThanOrEqual => {
+                        if left_ty == right_ty {
+                            let spanned_left = ast::SpannedExpression {
+                                expression: left_expr,
+                                start: left_start,
+                                end: left_end,
+                            };
+                            let spanned_right = ast::SpannedExpression {
+                                expression: right_expr,
+                                start: right_start,
+                                end: right_end,
+                            };
+                            let operator = operator.into();
+                            Ok((ast::Type::Bool, ast::Expression::BinaryExpression {
                                 left: Box::new(spanned_left),
                                 operator,
                                 right: Box::new(spanned_right),

@@ -488,7 +488,15 @@ impl<'a> LexerIterator<'a> for Lexer<'a> {
                         }
                     }
                     '^' => Token::BitXor,
-                    '!' => Token::Not,
+                    '!' => {
+                        if let Some((i, '=')) = self.peek_next() {
+                            end = *i;
+                            self.get_next();
+                            Token::Neq
+                        } else {
+                            Token::Not
+                        }
+                    },
                     '<' => {
                         if let Some((i, '=')) = self.peek_next() {
                             end = *i;

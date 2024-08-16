@@ -82,11 +82,28 @@ pub enum Statement {
         type_annotation: SpannedType,
         expression: SpannedExpression,
     },
+    Assignment {
+        binding: SpannedLhs,
+        expression: SpannedExpression,
+    },
     WhileStatement {
         condition: SpannedExpression,
         body: Vec<SpannedStatement>,
     },
 }
+
+#[derive(Debug, PartialEq, PartialOrd, Clone)]
+pub struct SpannedLhs {
+    pub lhs: Lhs,
+    pub start: usize,
+    pub end: usize,
+}
+
+#[derive(Debug, PartialEq, PartialOrd, Clone)]
+pub enum Lhs {
+    Variable(String),
+}
+
 
 #[derive(Debug, PartialEq, PartialOrd, Clone)]
 pub struct SpannedPattern {

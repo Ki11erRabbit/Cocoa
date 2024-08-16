@@ -1,4 +1,8 @@
-use crate::{ast::{BinaryOperator, Expression, Literal, Pattern, PrefixOperator, SpannedExpression, SpannedPattern, SpannedStatement, SpannedType, Statement, Type}, lexer::{Lexer, LexerError, SpannedToken, Token}};
+mod parse_table;
+
+use crate::{ast::{BinaryOperator, Expression, Literal, Pattern, PrefixOperator, SpannedExpression, SpannedPattern, SpannedStatement, SpannedType, Statement, Type}, lexer::{SpannedToken, Token}};
+
+use self::parse_table::ParseTable;
 
 pub type ParseResult<'a, T> = Result<T, ParserError>;
 
@@ -22,44 +26,25 @@ impl ParserError {
     }
 }
 
+
 pub struct Parser<'a> {
-    lexer: Lexer<'a>,
+    parse_table: ParseTable<'a>,
 }
 
 
 impl<'a> Parser<'a> {
     pub fn new(input: &'a str) -> Parser<'a> {
-        let lexer = Lexer::new(input);
         Parser {
-            lexer,
+            parse_table: ParseTable::new(input),
         }
     }
 
     pub fn next(&mut self) -> ParseResult<SpannedToken> {
-        let next = self.lexer.next();
-        match next {
-            Some(token) => {
-                match token {
-                    Ok(token) => Ok(token),
-                    Err(LexerError::Error{ message, start, end}) => Err(ParserError::new(&message, start, end)),
-                    Err(LexerError::Eof) => Err(ParserError::EOF),
-                }
-            }
-            None => Err(ParserError::EOF),
-        }
+        self.parse_table.next()
     }
 
     pub fn peek(&mut self) -> ParseResult<&SpannedToken> {
-        match self.lexer.peek() {
-            Some(token) => {
-                match token {
-                    Ok(token) => Ok(token),
-                    Err(LexerError::Error{ message, start, end}) => Err(ParserError::new(message, *start, *end)),
-                    Err(LexerError::Eof) => Err(ParserError::EOF),
-                }
-            }
-            None => Err(ParserError::EOF),
-        }
+        self.parse_table.peek()
     }
 
     pub fn parse_block_body(&mut self) -> ParseResult<Vec<SpannedStatement>> {
@@ -138,6 +123,26 @@ impl<'a> Parser<'a> {
                             end,
                         });
                     }
+                    Ok(SpannedToken { token: Token::Assign, .. }) => {
+                        let SpannedToken { .. } = self.next()?;
+                        let assign = expr?;
+                        let start = assign.start;
+                        let expr = self.parse_expression()?;
+                        let end = expr.end;
+
+                        let Ok(SpannedToken { token: Token::Semicolon, .. }) = self.next() else {
+                            return Err(ParserError::new("Expected semicolon", end, end));
+                        };
+                        
+                        return Ok(SpannedStatement {
+                            statement: Statement::Assignment {
+                                binding: assign,
+                                expression: expr,
+                            },
+                            start,
+                            end,
+                        });
+                    }
                     _ => {
                         let expr = expr?;
                         let start = expr.start;
@@ -156,6 +161,11 @@ impl<'a> Parser<'a> {
             let end = *end;
             return self.parse_let_statement(start, end);
         }
+        /*if let Ok(SpannedToken { token: Token::Identifier(_), start, end }) = self.peek() {
+            let start = *start;
+            let end = *end;
+            return self.parse_assignment_statement(start, end);
+        }*/
         if let Ok(SpannedToken { token: Token::While, .. }) = self.peek() {
             return self.parse_while_statement();
         }
@@ -208,6 +218,28 @@ impl<'a> Parser<'a> {
         todo!("Implement remaining patterns")
     }
 
+    /*fn parse_assignment_statement(&mut self, start: usize, end: usize) -> ParseResult<SpannedStatement> {
+        let Ok(SpannedToken { token: Token::Identifier(var), .. }) = self.next() else {
+            return Err(ParserError::new("Expected identifier", start, end));
+        };
+        let var = var.to_string();
+        let Ok(SpannedToken { token:Token::Assign, .. }) = self.next() else {
+            return Err(ParserError::new("Expected assignment operator (=)", end, end));
+        };
+
+        let expression = self.parse_expression()?;
+
+        let out = SpannedStatement {
+            start,
+            end: expression.end,
+            statement: Statement::Assignment {
+                binding: var,
+                expression,
+            }
+        };
+        
+        Ok(out)
+    }*/
 }
 
 // Expression Parsing
@@ -258,9 +290,48 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_equality_and_order_expression(&mut self) -> ParseResult<SpannedExpression> {
-        //TODO parse equality and order expression
 
-        self.parse_bitwise_or()
+        let expr1 = self.parse_bitwise_or()?;
+        let op = self.peek();
+        let op = match op {
+            Ok(SpannedToken { token: Token::Eq, .. }) => {
+                self.next()?;
+                BinaryOperator::Equal
+            }
+            Ok(SpannedToken { token: Token::Neq, .. }) => {
+                self.next()?;
+                BinaryOperator::NotEqual
+            }
+            Ok(SpannedToken { token: Token::Lt, .. }) => {
+                self.next()?;
+                BinaryOperator::LessThan
+            }
+            Ok(SpannedToken { token: Token::Gt, .. }) => {
+                self.next()?;
+                BinaryOperator::GreaterThan
+            }
+            Ok(SpannedToken { token: Token::Le, .. }) => {
+                self.next()?;
+                BinaryOperator::LessThanOrEqual
+            }
+            Ok(SpannedToken { token: Token::Ge, .. }) => {
+                self.next()?;
+                BinaryOperator::GreaterThanOrEqual
+            }
+            _ => return Ok(expr1),
+        };
+        let expr2 = self.parse_equality_and_order_expression()?;
+        let start = expr1.start;
+        let end = expr2.end;
+        Ok(SpannedExpression {
+            expression: Expression::BinaryExpression {
+                left: Box::new(expr1),
+                operator: op,
+                right: Box::new(expr2),
+            },
+            start,
+            end,
+        })
     }
 
     fn parse_bitwise_or(&mut self) -> ParseResult<SpannedExpression> {
