@@ -10,6 +10,7 @@ pub trait IntoBinary {
     fn into_binary(&self) -> Vec<u8>;
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Type {
     U8,
     U16,
@@ -43,6 +44,26 @@ impl From<Value> for Type {
             Value::Char(_) => Type::Char,
             Value::Object => Type::Object,
             Value::Str => Type::Str,
+        }
+    }
+}
+
+impl From<Type> for u8 {
+    fn from(ty: Type) -> Self {
+        match ty {
+            Type::U8 => 0,
+            Type::U16 => 1,
+            Type::U32 => 2,
+            Type::U64 => 3,
+            Type::I8 => 4,
+            Type::I16 => 5,
+            Type::I32 => 6,
+            Type::I64 => 7,
+            Type::F32 => 8,
+            Type::F64 => 9,
+            Type::Char => 10,
+            Type::Object => 11,
+            Type::Str => 12,
         }
     }
 }
@@ -178,7 +199,8 @@ pub struct Frame {
     operands: Vec<Value>,
     locals: [Value; 256],
     next_local: u8,
-    name_to_local: HashMap<String, u8>,
+    name_to_local: HashMap<(String, Type), u8>,
+    name_to_position: HashMap<String, (String, Type)>,
 }
 
 impl Frame {
@@ -188,6 +210,7 @@ impl Frame {
             locals: [Value::U8(0); 256],
             next_local: 0,
             name_to_local: HashMap::new(),
+            name_to_position: HashMap::new(),
         }
     }
 
@@ -203,12 +226,13 @@ impl Frame {
         let local = self.next_local;
         self.next_local += 1;
         self.locals[local as usize] = value;
-        self.name_to_local.insert(name.to_string(), local);
+        self.name_to_local.insert((name.to_string(), value.into()), local);
         local
     }
 
     pub fn load_local(&self, name: &str) -> (u8, Value) {
-        let local = self.name_to_local.get(name).unwrap();
+        let (local, ty) = self.name_to_position.get(name).unwrap();
+        let local = self.name_to_local.get(&(local.to_string(), *ty)).unwrap();
         (*local, self.locals[*local as usize])
     }
 }
@@ -245,6 +269,7 @@ impl Stack {
 pub struct StatementsCompiler {
     stack: Stack,
     bytecode: Vec<Bytecode>,
+    block_count: u64,
 }
 
 
@@ -253,12 +278,22 @@ impl StatementsCompiler {
         StatementsCompiler {
             stack: Stack::new(),
             bytecode: Vec::new(),
+            block_count: 0,
         }
+    }
+
+    fn add_block(&mut self) -> u64 {
+        self.block_count += 1;
+        self.block_count
+    }
+
+    fn current_block(&self) -> u64 {
+        self.block_count
     }
 
     fn bind_local(&mut self, name: &str, ty: Type) {
         let index = self.stack.frames.last_mut().unwrap().store_local(name, ty.into());
-        self.bytecode.push(Bytecode::StoreLocal(index));
+        self.bytecode.push(Bytecode::StoreLocal(index, ty.into()));
     }
 
     fn lookup_local(&mut self, name: &str) -> Value {
@@ -268,6 +303,7 @@ impl StatementsCompiler {
     }
 
     pub fn compile_statements(&mut self, constant_pool: &mut ConstantPool, statements: &[SpannedStatement]) {
+        self.bytecode.push(Bytecode::StartBlock(0));
         for statement in statements {
             self.compile_statement(constant_pool, statement);
         }
@@ -283,7 +319,7 @@ impl StatementsCompiler {
                 //TODO: Check that it is at the end of a function
                 self.bytecode.push(Bytecode::Return);
             }
-            Statement::LetStatement { binding, type_annotation, expression } => {
+            Statement::LetStatement { binding, expression, .. } => {
                 if let Pattern::Identifier(name) = &binding.pattern {
                     let ty = self.compile_expression(constant_pool, expression);
                     self.bind_local(name, ty);
@@ -296,27 +332,28 @@ impl StatementsCompiler {
     }
 
     fn compile_while_statement(&mut self, constant_pool: &mut ConstantPool, condition: &SpannedExpression, body: &[SpannedStatement]) {
-        self.bytecode.push(Bytecode::StartBlock);
+        let condition_block = self.add_block();
+        self.bytecode.push(Bytecode::Goto(condition_block));
+        self.bytecode.push(Bytecode::StartBlock(condition_block));
         self.compile_while_conditional(constant_pool, condition);
-        self.bytecode.push(Bytecode::EndBlock);
 
         self.stack.push_frame();
-        self.bytecode.push(Bytecode::StartBlock);
+        let body_block = self.add_block();
+        self.bytecode.push(Bytecode::StartBlock(body_block));
         for statement in body {
             self.compile_statement(constant_pool, statement);
         }
         self.stack.pop_frame();
 
-        self.bytecode.push(Bytecode::Goto(-1));
-        self.bytecode.push(Bytecode::EndBlock);
+        self.bytecode.push(Bytecode::Goto(condition_block));
+        let next_block = self.add_block();
+        self.bytecode.push(Bytecode::StartBlock(next_block));
     }
 
     fn compile_while_conditional(&mut self, constant_pool: &mut ConstantPool, condition: &SpannedExpression) {
         self.compile_expression(constant_pool, condition);
-        let if_instruction = Bytecode::If(2);
+        let if_instruction = Bytecode::If(self.current_block() + 1, self.current_block() + 2);
         self.bytecode.push(if_instruction);
-        let escape_instruction = Bytecode::Goto(1);
-        self.bytecode.push(escape_instruction);
     }
 
     fn compile_expression(&mut self, constant_pool: &mut ConstantPool, expr: &SpannedExpression) -> Type {
@@ -1013,6 +1050,7 @@ impl StatementsCompiler {
 impl IntoBinary for StatementsCompiler {
     fn into_binary(&self) -> Vec<u8> {
         let mut bytes = Vec::new();
+        bytes.extend_from_slice(&(self.block_count as u64).to_le_bytes());
         bytes.extend_from_slice(&(self.bytecode.len() as u64).to_le_bytes());
         for bytecode in &self.bytecode {
             bytes.extend_from_slice(&bytecode.into_binary());
@@ -1033,8 +1071,9 @@ impl IntoBinary for Bytecode {
             Bytecode::StoreConstant(index) => {
                 bytes.extend_from_slice(&index.to_le_bytes());
             }
-            Bytecode::StoreLocal(index) => {
+            Bytecode::StoreLocal(index, ty) => {
                 bytes.push(*index);
+                bytes.push(*ty);
             }
             Bytecode::LoadLocal(index) => {
                 bytes.push(*index);
@@ -1045,11 +1084,12 @@ impl IntoBinary for Bytecode {
             Bytecode::BinaryConvert(tag) => {
                 bytes.push(*tag);
             }
-            Bytecode::Goto(offset) => {
-                bytes.extend_from_slice(&offset.to_le_bytes());
+            Bytecode::Goto(blockid) => {
+                bytes.extend_from_slice(&blockid.to_le_bytes());
             }
-            Bytecode::If(offset) => {
-                bytes.extend_from_slice(&offset.to_le_bytes());
+            Bytecode::If(blockid, elseid) => {
+                bytes.extend_from_slice(&blockid.to_le_bytes());
+                bytes.extend_from_slice(&elseid.to_le_bytes());
             }
             Bytecode::InvokeFunction(symbol) => {
                 bytes.extend_from_slice(&symbol.to_le_bytes());
@@ -1090,6 +1130,9 @@ impl IntoBinary for Bytecode {
             }
             Bytecode::ArraySet(tag) => {
                 bytes.push(*tag);
+            }
+            Bytecode::StartBlock(block_id) => {
+                bytes.extend_from_slice(&block_id.to_le_bytes());
             }
             _ => {}
         }

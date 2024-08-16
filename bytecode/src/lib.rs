@@ -2,6 +2,7 @@
 pub type PoolPointer = u64;
 pub type SymbolPointer = u64;
 pub type TypeTag = u8;
+pub type BlockId = u64;
 
 #[derive(Debug, PartialEq, PartialOrd, Clone, Copy)]
 pub enum Bytecode {
@@ -10,7 +11,7 @@ pub enum Bytecode {
     Pop,
     Dup,
     Swap,
-    StoreLocal(u8),
+    StoreLocal(u8, TypeTag),
     LoadLocal(u8),
     StoreArgument,
     Addu8,
@@ -156,11 +157,10 @@ pub enum Bytecode {
     /// Goto the instruction at the given offset.
     /// The offset is relative to the current block.
     /// For example, Goto(0) will jump to the top of the current block.
-    Goto(i64),
+    Goto(BlockId),
     Jump,
-    If(i64),
-    StartBlock,
-    EndBlock,
+    If(BlockId, BlockId),
+    StartBlock(u64),
     InvokeFunction(SymbolPointer),
     InvokeFunctionTail(SymbolPointer),
     InvokeTrait(SymbolPointer, SymbolPointer),
@@ -189,7 +189,7 @@ impl Bytecode {
             Pop => 2,
             Dup => 3,
             Swap => 4,
-            StoreLocal(_) => 5,
+            StoreLocal(_, _) => 5,
             LoadLocal(_) => 6,
             StoreArgument => 7,
             Addu8 => 8,
@@ -334,9 +334,8 @@ impl Bytecode {
             BinaryConvert(_) => 147,
             Goto(_) => 148,
             Jump => 149,
-            If(_) => 150,
-            StartBlock => 151,
-            EndBlock => 152,
+            If(_, _) => 150,
+            StartBlock(_) => 151,
             InvokeFunction(_) => 158,
             InvokeFunctionTail(_) => 159,
             InvokeTrait(_, _) => 160,
@@ -373,7 +372,7 @@ impl Bytecode {
             2 => Pop,
             3 => Dup,
             4 => Swap,
-            5 => StoreLocal(iter.next().unwrap()),
+            5 => StoreLocal(iter.next().unwrap(), iter.next().unwrap()),
             6 => LoadLocal(iter.next().unwrap()),
             7 => StoreArgument,
             8 => Addu8,
@@ -518,17 +517,22 @@ impl Bytecode {
             147 => BinaryConvert(iter.next().unwrap()),
             148 => {
                 let slice = [iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap()];
-                let offset = i64::from_le_bytes(slice);
-                Goto(offset)
+                let blockid = u64::from_le_bytes(slice);
+                Goto(blockid)
             }
             149 => Jump,
             150 => {
                 let slice = [iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap()];
-                let offset = i64::from_le_bytes(slice);
-                If(offset)
+                let thenid = u64::from_le_bytes(slice);
+                let slice = [iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap()];
+                let elseid = u64::from_le_bytes(slice);
+                If(thenid, elseid)
             }
-            151 => StartBlock,
-            152 => EndBlock,
+            151 => {
+                let slice = [iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap()];
+                let block_id = u64::from_le_bytes(slice);
+                StartBlock(block_id)
+            }
             158 => {
                 let slice = [iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap()];
                 let symbol_pointer = u64::from_le_bytes(slice);

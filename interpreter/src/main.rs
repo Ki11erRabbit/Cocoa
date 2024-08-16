@@ -16,9 +16,11 @@ fn main() {
 
     let mut source = source.into_iter();
     let constant_pool = vm::ConstantPool::from_binary(&mut source);
+    let slice = [source.next().unwrap(), source.next().unwrap(), source.next().unwrap(), source.next().unwrap(), source.next().unwrap(), source.next().unwrap(), source.next().unwrap(), source.next().unwrap()];
+    let block_count = u64::from_le_bytes(slice);
     let bytecode = vm::get_bytecode(&mut source);
 
     let mut jit = vm::Jit::new(constant_pool, bytecode);
 
-    jit.run();
+    jit.run(block_count);
 }

@@ -19,7 +19,7 @@ pub enum Constant {
     Char(char),
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Type {
     U8,
     U16,
@@ -32,6 +32,25 @@ pub enum Type {
     F32,
     F64,
     Char,
+}
+
+impl From<u8> for Type {
+    fn from(val: u8) -> Self {
+        match val {
+            0 => Type::U8,
+            1 => Type::U16,
+            2 => Type::U32,
+            3 => Type::U64,
+            4 => Type::I8,
+            5 => Type::I16,
+            6 => Type::I32,
+            7 => Type::I64,
+            8 => Type::F32,
+            9 => Type::F64,
+            10 => Type::Char,
+            _ => panic!("Invalid type"),
+        }
+    }
 }
 
 
@@ -127,8 +146,8 @@ impl Jit {
         }
     }
 
-    pub fn run(&mut self) {
-        let code = self.compile().unwrap();
+    pub fn run(&mut self, block_count: u64) {
+        let code = self.compile(block_count).unwrap();
 
         unsafe {
             let func: fn() -> i64 = std::mem::transmute(code);
@@ -139,19 +158,15 @@ impl Jit {
         
     }
 
-    fn compile(&mut self) -> Result<*const u8, String> {
+    fn compile(&mut self, block_count: u64) -> Result<*const u8, String> {
 
         self.ctx.func.signature.returns.push(AbiParam::new(types::I64));
 
-        let mut builder = FunctionBuilder::new(&mut self.ctx.func, &mut self.builder_context);
-        let entry_block = builder.create_block();
-        builder.append_block_params_for_function_params(entry_block);
-        builder.switch_to_block(entry_block);
-        builder.seal_block(entry_block);
+        let builder = FunctionBuilder::new(&mut self.ctx.func, &mut self.builder_context);
 
-        let mut trans = FunctionTranslator::new(builder, &mut self.module, &self.constants, &self.bytecode);
+        let mut trans = FunctionTranslator::new(builder, &mut self.module, &self.constants, block_count);
 
-        trans.translate();
+        trans.translate(self.bytecode.iter());
 
         trans.builder.finalize();
 
@@ -179,37 +194,62 @@ pub struct FunctionTranslator<'a> {
     builder: FunctionBuilder<'a>,
     module: &'a mut JITModule,
     constants: &'a ConstantPool,
-    bytecode: &'a Vec<Bytecode>,
-    locals: Vec<Vec<(Variable, Type)>>,
+    locals: Vec<Variable>,
     stack: Vec<Value>,
     arguments: Vec<Value>,
+    next_variable: usize,
+    blocks: Vec<Block>,
+    current_block: usize,
 }
 
 impl<'a> FunctionTranslator<'a> {
 
-    pub fn new(builder: FunctionBuilder<'a>, module: &'a mut JITModule, constants: &'a ConstantPool, bytecode: &'a Vec<Bytecode>) -> Self {
+    pub fn new(
+        mut builder: FunctionBuilder<'a>,
+        module: &'a mut JITModule,
+        constants: &'a ConstantPool,
+        block_count: u64
+    ) -> Self {
+        let mut locals = Vec::with_capacity(256);
+        for i in 0..256 {
+            locals.push(Variable::new(i));
+        }
+        let mut blocks = Vec::new();
+        for _ in 0..=block_count {
+            blocks.push(builder.create_block());
+        }
         Self {
             builder,
             module,
             constants,
-            bytecode,
-            locals: vec![Vec::new(); 256],
+            locals,
             stack: Vec::new(),
             arguments: Vec::new(),
+            next_variable: 0,
+            blocks,
+            current_block: 0,
         }
     }
 
-    pub fn translate(&mut self) {
-        let entry_block = self.builder.create_block();
-        self.builder.append_block_params_for_function_params(entry_block);
-        self.builder.switch_to_block(entry_block);
-        self.builder.seal_block(entry_block);
-        // TODO: check type of arguments and load arguments into variables
-        self.translate_block(entry_block);
+    fn get_variable(&mut self) -> Variable {
+        let var = Variable::new(self.next_variable);
+        self.next_variable += 1;
+        var
     }
 
-    fn translate_block(&mut self, current_block: Block) {
-        for code in self.bytecode {
+    pub fn translate(&mut self, bytecode: impl Iterator<Item = &'a Bytecode>) {
+        let entry_block = self.blocks[0];
+        self.builder.append_block_params_for_function_params(entry_block);
+        self.builder.switch_to_block(entry_block);
+        self.blocks.push(entry_block);
+        // TODO: check type of arguments and load arguments into variables
+        self.translate_block(bytecode);
+        self.builder.seal_all_blocks();
+    }
+
+    fn translate_block(&mut self, bytecode: impl Iterator<Item = &'a Bytecode>) {
+        let mut bytecode = bytecode;
+        while let Some(code) = bytecode.next() {
             match code {
                 Bytecode::LoadConstant(pos) => {
                     let constant = self.constants.constants[*pos as usize];
@@ -282,13 +322,33 @@ impl<'a> FunctionTranslator<'a> {
                     self.stack.push(val1);
                     self.stack.push(val2);
                 }
-                Bytecode::StoreLocal(index) => {
-                    let val = self.stack.pop().unwrap();
-                    self.locals[*index as usize].push((val, Type::I64));
-                    self.locals[*index as usize] = val;
+                Bytecode::StoreLocal(index, ty) => {
+                    let ty = match ty {
+                        0 => types::I8,
+                        1 => types::I16,
+                        2 => types::I32,
+                        3 => types::I64,
+                        4 => types::I8,
+                        5 => types::I16,
+                        6 => types::I32,
+                        7 => types::I64,
+                        8 => types::F32,
+                        9 => types::F64,
+                        _ => panic!("Invalid type"),
+                    };
+                    match self.builder.try_declare_var(self.locals[*index as usize], ty) {
+                        Ok(_) => {
+                            let val = self.stack.pop().unwrap();
+                            self.builder.def_var(self.locals[*index as usize], val);
+                        }
+                        Err(_) => {
+                            let val = self.stack.pop().unwrap();
+                            self.builder.def_var(self.locals[*index as usize], val);
+                        }
+                    }
                 }
                 Bytecode::LoadLocal(index) => {
-                    let val = self.locals[*index as usize];
+                    let val = self.builder.use_var(self.locals[*index as usize]);
                     self.stack.push(val);
                 }
                 Bytecode::StoreArgument => {
@@ -1094,12 +1154,24 @@ impl<'a> FunctionTranslator<'a> {
                     self.stack.push(val);
                 }
                 // Implement convertions
-                Bytecode::Goto(offset) => {
+                Bytecode::Goto(blockid) => {
+                    let block = self.blocks[*blockid as usize];
+                    self.builder.ins().jump(block, &[]);
                 }
-                Bytecode::StartBlock => {
-                    let block = self.builder.create_block();
-                    self.builder.switch_to_block(block);
+                // Implement Jump
+                Bytecode::If(then_id, else_id) => {
+                    let then_block = self.blocks[*then_id as usize];
+                    let else_block = self.blocks[*else_id as usize];
 
+                    let val = self.stack.pop().unwrap();
+
+                    self.builder.ins().brif(val, then_block, &[], else_block, &[]);
+
+                }
+                Bytecode::StartBlock(block_id) => {
+                    self.current_block = *block_id as usize;
+                    let block = self.blocks[self.current_block];
+                    self.builder.switch_to_block(block);
                 }
                 Bytecode::Return => {
                     let val = self.stack.pop().unwrap();
