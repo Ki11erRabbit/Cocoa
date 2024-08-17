@@ -3,7 +3,7 @@ use std::collections::HashMap;
 
 use bytecode::Bytecode;
 
-use crate::typechecker::ast::{BinaryOperator, Expression, Lhs, Pattern, PrefixOperator, SpannedExpression, SpannedStatement, Statement};
+use crate::typechecker::ast::{BinaryOperator, Expression, Lhs, Pattern, PrefixOperator, SpannedExpression, SpannedPattern, SpannedStatement, SpannedType, Statement};
 
 
 pub trait IntoBinary {
@@ -367,6 +367,7 @@ impl StatementsCompiler {
         let if_instruction = Bytecode::If(self.current_block() + 1, self.current_block() + 2);
         self.bytecode.push(if_instruction);
     }
+
 
     fn compile_expression(&mut self, constant_pool: &mut ConstantPool, expr: &SpannedExpression) -> Type {
         match &expr.expression {

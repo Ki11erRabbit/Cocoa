@@ -1,12 +1,12 @@
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct SpannedType {
     pub type_: Type,
     pub start: usize,
     pub end: usize,
 }
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Hash)]
 pub enum Type {
     Unit,
     Bool,
@@ -21,6 +21,7 @@ pub enum Type {
     U64,
     F32,
     F64,
+    Range(Box<Type>),
 }
 
 impl std::fmt::Display for Type {
@@ -39,6 +40,7 @@ impl std::fmt::Display for Type {
             Self::U64 => write!(f, "u64"),
             Self::F32 => write!(f, "f32"),
             Self::F64 => write!(f, "f64"),
+            Self::Range(type_) => write!(f, "range<{}>", type_),
         }
     }
 }

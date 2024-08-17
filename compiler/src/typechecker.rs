@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+
 pub mod ast;
 
 
@@ -63,7 +64,7 @@ impl TypeChecker {
     fn lookup_variable(&self, name: &str) -> Option<ast::Type> {
         for scope in self.local_scope_stack.iter().rev() {
             if let Some(ty) = scope.get(name) {
-                return Some(*ty);
+                return Some(ty.clone());
             }
         }
         None
@@ -122,11 +123,11 @@ impl TypeChecker {
                 if let crate::ast::Pattern::Identifier(name) = pattern {
 
                     if let Some(type_annotation) = type_annotation {
-                        let annotation = type_annotation.type_.into();
+                        let annotation: ast::Type = type_annotation.type_.into();
                         let expression_start = expression.start;
                         let expression_end = expression.end;
-                        let (ty, expr) = self.check_expression(expression, Some(annotation))?;
-                        self.bind_variable(name.clone(), ty);
+                        let (ty, expr) = self.check_expression(expression, Some(annotation.clone()))?;
+                        self.bind_variable(name.clone(), ty.clone());
                         if ty != annotation {
                             let type_error = TypeError::new(
                                 format!("Type mismatch: expected {}, found {}", annotation, ty),
@@ -232,6 +233,9 @@ impl TypeChecker {
                     end: stmt_end,
                 })
             }
+            crate::ast::Statement::ForStatement { .. } => {
+                todo!("Implement type checking for for loops")
+            }
         }
     }
 
@@ -306,8 +310,8 @@ impl TypeChecker {
                 let right_start = right.start;
                 let right_end = right.end;
                 
-                let (left_ty, left_expr) = self.check_expression(*left, None)?;
-                let (right_ty, right_expr) = self.check_expression(*right, Some(left_ty))?;
+                let (left_ty, left_expr) = self.check_expression(*left, coerce_to)?;
+                let (right_ty, right_expr) = self.check_expression(*right, Some(left_ty.clone()))?;
 
                 //TODO: add lookup for trait impls to allow for overloading
                 match operator {
@@ -409,6 +413,38 @@ impl TypeChecker {
                                 .with_additional(right_start, right_end, "Right operand here".to_string());
                             Err(error)
                         }
+                    }
+                    crate::ast::BinaryOperator::ExclusiveRange |
+                    crate::ast::BinaryOperator::InclusiveRange => {
+                        if left_ty == right_ty {
+                            let spanned_left = ast::SpannedExpression {
+                                expression: left_expr,
+                                start: left_start,
+                                end: left_end,
+                            };
+                            let spanned_right = ast::SpannedExpression {
+                                expression: right_expr,
+                                start: right_start,
+                                end: right_end,
+                            };
+                            let operator = operator.into();
+                            Ok((ast::Type::Range(Box::new(left_ty)), ast::Expression::BinaryExpression {
+                                left: Box::new(spanned_left),
+                                operator,
+                                right: Box::new(spanned_right),
+                            }))
+                        } else {
+                            let operator: ast::BinaryOperator = operator.into();
+                            let error = TypeError::new(
+                                format!("Type mismatch: expected {}, found {}", left_ty, right_ty),
+                                expr_start,
+                                expr_end,
+                            ).with_tip(format!("Both operands must have the same type for {}", operator))
+                                .with_additional(left_start, left_end, "Left operand here".to_string())
+                                .with_additional(right_start, right_end, "Right operand here".to_string());
+                            Err(error)
+                        }
+
                     }
                     _ => todo!("Implement type checking for other binary operators"),
                 }

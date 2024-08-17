@@ -161,11 +161,11 @@ impl<'a> Parser<'a> {
             let end = *end;
             return self.parse_let_statement(start, end);
         }
-        /*if let Ok(SpannedToken { token: Token::Identifier(_), start, end }) = self.peek() {
+        if let Ok(SpannedToken { token: Token::For, start, end }) = self.peek() {
             let start = *start;
             let end = *end;
-            return self.parse_assignment_statement(start, end);
-        }*/
+            return self.parse_for_statement(start, end);
+        }
         if let Ok(SpannedToken { token: Token::While, .. }) = self.peek() {
             return self.parse_while_statement();
         }
@@ -218,28 +218,6 @@ impl<'a> Parser<'a> {
         todo!("Implement remaining patterns")
     }
 
-    /*fn parse_assignment_statement(&mut self, start: usize, end: usize) -> ParseResult<SpannedStatement> {
-        let Ok(SpannedToken { token: Token::Identifier(var), .. }) = self.next() else {
-            return Err(ParserError::new("Expected identifier", start, end));
-        };
-        let var = var.to_string();
-        let Ok(SpannedToken { token:Token::Assign, .. }) = self.next() else {
-            return Err(ParserError::new("Expected assignment operator (=)", end, end));
-        };
-
-        let expression = self.parse_expression()?;
-
-        let out = SpannedStatement {
-            start,
-            end: expression.end,
-            statement: Statement::Assignment {
-                binding: var,
-                expression,
-            }
-        };
-        
-        Ok(out)
-    }*/
 }
 
 // Expression Parsing
@@ -273,8 +251,30 @@ impl<'a> Parser<'a> {
 
     fn parse_range_expression(&mut self) -> ParseResult<SpannedExpression> {
         //TODO parse range expression
-
-        self.parse_disjunction_expression()
+        let expr1 = self.parse_disjunction_expression()?;
+        let op = match self.peek() {
+            Ok(SpannedToken { token: Token::InclusiveRange, .. }) => {
+                self.next()?;
+                BinaryOperator::InclusiveRange
+            }
+            Ok(SpannedToken { token: Token::ExclusiveRange, .. }) => {
+                self.next()?;
+                BinaryOperator::ExclusiveRange
+            }
+            _ => return Ok(expr1),
+        };
+        let expr2 = self.parse_range_expression()?;
+        let start = expr1.start;
+        let end = expr2.end;
+        Ok(SpannedExpression {
+            expression: Expression::BinaryExpression {
+                left: Box::new(expr1),
+                operator: op,
+                right: Box::new(expr2),
+            },
+            start,
+            end,
+        })
     }
 
     fn parse_disjunction_expression(&mut self) -> ParseResult<SpannedExpression> {
@@ -650,6 +650,30 @@ impl<'a> Parser<'a> {
             },
             start,
             end,
+        });
+    }
+
+    fn parse_for_statement(&mut self, start: usize, end: usize) -> ParseResult<SpannedStatement> {
+        let Ok(SpannedToken { token: Token::For, .. }) = self.next() else {
+            return Err(ParserError::new("Expected for keyword", start, end));
+        };
+        let pattern = self.parse_pattern()?;
+        let ty = self.parse_annotated_type(false)?;
+        let Ok(SpannedToken { token: Token::In, .. }) = self.next() else {
+            return Err(ParserError::new("Expected in keyword", pattern.end, pattern.end));
+        };
+        let expression = self.parse_expression()?;
+        let body = self.parse_block()?;
+        let body_end = body.last().unwrap().end;
+        return Ok(SpannedStatement {
+            statement: Statement::ForStatement {
+                binding: pattern,
+                typing: ty,
+                expression,
+                body,
+            },
+            start,
+            end: body_end,
         });
     }
 }

@@ -52,6 +52,12 @@ pub enum Statement {
         condition: SpannedExpression,
         body: Vec<SpannedStatement>,
     },
+    ForStatement {
+        binding: SpannedPattern,
+        typing: Option<SpannedType>,
+        expression: SpannedExpression,
+        body: Vec<SpannedStatement>,
+    },
 }
 
 #[derive(Debug, PartialEq, PartialOrd, Clone)]
