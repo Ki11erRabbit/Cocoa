@@ -160,6 +160,7 @@ pub enum Expression {
         expression: Option<Box<SpannedExpression>>,
     },
     ReturnExpression(Option<Box<SpannedExpression>>),
+    ContinueExpression(Option<String>),
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]

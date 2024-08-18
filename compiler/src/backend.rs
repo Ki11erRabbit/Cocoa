@@ -320,6 +320,7 @@ struct BlockTable {
     labeled_blocks: HashMap<String, u64>,
     start_blocks: Vec<u64>,
     exit_blocks: Vec<u64>,
+    continue_blocks: Vec<u64>,
 }
 
 impl BlockTable {
@@ -331,6 +332,7 @@ impl BlockTable {
             labeled_blocks: HashMap::new(),
             start_blocks: Vec::new(),
             exit_blocks: Vec::new(),
+            continue_blocks: Vec::new(),
         }
     }
 
@@ -391,6 +393,18 @@ impl BlockTable {
 
     pub fn get_exit_block(&self) -> u64 {
         *self.exit_blocks.last().unwrap()
+    }
+
+    pub fn push_continue_block(&mut self, block: u64) {
+        self.continue_blocks.push(block);
+    }
+
+    pub fn pop_continue_block(&mut self) -> u64 {
+        self.continue_blocks.pop().unwrap()
+    }
+
+    pub fn get_continue_block(&self) -> u64 {
+        self.continue_blocks.last().unwrap().clone()
     }
 }
 
@@ -467,6 +481,18 @@ impl StatementsCompiler {
         self.block_table.get_exit_block()
     }
 
+    fn push_continue_block(&mut self, block: u64) {
+        self.block_table.push_continue_block(block);
+    }
+
+    fn pop_continue_block(&mut self) -> u64 {
+        self.block_table.pop_continue_block()
+    }
+
+    fn get_continue_block(&self) -> u64 {
+        self.block_table.get_continue_block()
+    }
+
     fn bind_local(&mut self, name: &str, ty: Type) {
         let index = self.stack.frames.last_mut().unwrap().store_local(name, ty.into());
         self.bytecode.push(Bytecode::StoreLocal(index, ty.into()));
@@ -528,7 +554,7 @@ impl StatementsCompiler {
         };
         self.bytecode.push(Bytecode::Goto(condition_block));
         self.bytecode.push(Bytecode::StartBlock(condition_block));
-        println!("{}", condition_block);
+        self.push_continue_block(condition_block);
         let exit_block = if let Some(block) = exit_block {
             block
         } else {
@@ -540,15 +566,15 @@ impl StatementsCompiler {
         //self.stack.push_frame();
         let body_block = self.add_block();
         self.bytecode.push(Bytecode::StartBlock(body_block));
-        println!("{}", body_block);
         for statement in body {
             self.compile_statement(constant_pool, statement);
         }
         //self.stack.pop_frame();
-
+        self.pop_continue_block();
+        self.pop_exit_block();
+        self.pop_start_block();
         self.bytecode.push(Bytecode::Goto(condition_block));
         self.bytecode.push(Bytecode::StartBlock(exit_block));
-        println!("{}", exit_block);
     }
 
     fn compile_while_conditional(&mut self, constant_pool: &mut ConstantPool, condition: &SpannedExpression, body_block: u64, exit_block: u64) {
@@ -1157,10 +1183,10 @@ impl StatementsCompiler {
             Expression::Label { name, body } => {
                 let block_id = self.add_block();
                 self.label_block(&format!("{} entry", name));
+                self.label_block(&format!("{} continue", name));
                 self.push_start_block(block_id);
                 self.bytecode.push(Bytecode::Goto(block_id));
                 self.bytecode.push(Bytecode::StartBlock(block_id));
-                println!("{}", block_id);
                 let exit_block = self.add_block();
                 let exit_block_name = format!("{} exit", name);
                 self.label_block(&exit_block_name);
@@ -1177,19 +1203,18 @@ impl StatementsCompiler {
                         Type::Unit
                     }
                     Either::Right(expr) => {
-                        let ty = self.compile_loop_expression(constant_pool, &expr.expression);
+                        let ty = self.compile_loop_expression(constant_pool, &expr.expression, Some(block_id), Some(exit_block));
                         ty
                     }
                 };
-                self.pop_exit_block();
-                self.pop_start_block();
+                //self.pop_exit_block();
+                //self.pop_start_block();
                 self.bytecode.push(Bytecode::StartBlock(exit_block));
-                println!("{}", exit_block);
                 self.set_block(&exit_block_name);
                 ty
             }
             Expression::LoopExpression { .. } => {
-                self.compile_loop_expression(constant_pool, &expr.expression)
+                self.compile_loop_expression(constant_pool, &expr.expression, None, None)
             }
             Expression::BreakExpression { label, expression, .. } => {
                 let block_id = if let Some(label) = label {
@@ -1216,19 +1241,48 @@ impl StatementsCompiler {
                     Type::Unit
                 }
             }
+            Expression::ContinueExpression(label) => {
+                let block_id = if let Some(label) = label {
+                    let block_id = self.get_label(&format!("{} continue", label));
+                    block_id
+                } else {
+                    let block_id = self.get_continue_block();
+                    block_id
+                };
+                self.bytecode.push(Bytecode::Goto(block_id));
+                Type::Unit
+            }
         }
     }
 
-    fn compile_loop_expression(&mut self, constant_pool: &mut ConstantPool, expr: &Expression) -> Type {
+    fn compile_loop_expression(&mut self, constant_pool: &mut ConstantPool, expr: &Expression, start_block: Option<u64>, exit_block: Option<u64>) -> Type {
         let Expression::LoopExpression { type_, body } = expr else {
             panic!("expected loop expression");
         };
-        let block_id = self.add_block();
+        let block_id = if let Some(start_block) = start_block {
+            start_block
+        } else {
+            let block = self.add_block();
+            self.push_start_block(block);
+            self.push_continue_block(block);
+            block
+        };
+        let exit_block = if let Some(exit_block) = exit_block {
+            exit_block
+        } else {
+            let block = self.add_block();
+            self.push_exit_block(block);
+            block
+        };
         self.bytecode.push(Bytecode::Goto(block_id));
         self.bytecode.push(Bytecode::StartBlock(block_id));
-        println!("{}", block_id);
+        self.push_continue_block(block_id);
         self.compile_statements(constant_pool, body);
+        self.pop_start_block();
+        self.pop_exit_block();
+        self.pop_continue_block();
         Bytecode::Goto(block_id);
+        self.bytecode.push(Bytecode::StartBlock(exit_block));
         type_.into()
     }
 

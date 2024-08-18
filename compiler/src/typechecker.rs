@@ -558,6 +558,9 @@ impl TypeChecker {
                     Ok((ast::Type::Unit, ast::Expression::ReturnExpression(None)))
                 }
             }
+            crate::ast::Expression::ContinueExpression(label) => {
+                Ok((ast::Type::Unit, ast::Expression::ContinueExpression(label)))
+            }
             _ => todo!("Implement type checking for other expressions"),
         }
     }
