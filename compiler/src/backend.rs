@@ -528,7 +528,6 @@ impl StatementsCompiler {
         };
         self.bytecode.push(Bytecode::Goto(condition_block));
         self.bytecode.push(Bytecode::StartBlock(condition_block));
-        println!("{}", condition_block);
         let exit_block = if let Some(block) = exit_block {
             block
         } else {
@@ -540,7 +539,6 @@ impl StatementsCompiler {
         //self.stack.push_frame();
         let body_block = self.add_block();
         self.bytecode.push(Bytecode::StartBlock(body_block));
-        println!("{}", body_block);
         for statement in body {
             self.compile_statement(constant_pool, statement);
         }
@@ -548,7 +546,6 @@ impl StatementsCompiler {
 
         self.bytecode.push(Bytecode::Goto(condition_block));
         self.bytecode.push(Bytecode::StartBlock(exit_block));
-        println!("{}", exit_block);
     }
 
     fn compile_while_conditional(&mut self, constant_pool: &mut ConstantPool, condition: &SpannedExpression, body_block: u64, exit_block: u64) {
@@ -1160,7 +1157,6 @@ impl StatementsCompiler {
                 self.push_start_block(block_id);
                 self.bytecode.push(Bytecode::Goto(block_id));
                 self.bytecode.push(Bytecode::StartBlock(block_id));
-                println!("{}", block_id);
                 let exit_block = self.add_block();
                 let exit_block_name = format!("{} exit", name);
                 self.label_block(&exit_block_name);
@@ -1184,7 +1180,6 @@ impl StatementsCompiler {
                 self.pop_exit_block();
                 self.pop_start_block();
                 self.bytecode.push(Bytecode::StartBlock(exit_block));
-                println!("{}", exit_block);
                 self.set_block(&exit_block_name);
                 ty
             }
@@ -1226,7 +1221,6 @@ impl StatementsCompiler {
         let block_id = self.add_block();
         self.bytecode.push(Bytecode::Goto(block_id));
         self.bytecode.push(Bytecode::StartBlock(block_id));
-        println!("{}", block_id);
         self.compile_statements(constant_pool, body);
         Bytecode::Goto(block_id);
         type_.into()
