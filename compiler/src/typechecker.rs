@@ -497,7 +497,33 @@ impl TypeChecker {
                     Ok(statements) => statements,
                     Err(()) => return Err(TypeError::new("Error in loop body".to_string(), expr_start, expr_end)),
                 };
-                Ok((ast::Type::Unit, ast::Expression::LoopExpression { body: checked_body}))
+
+                let ty = coerce_to.clone().unwrap_or(ast::Type::Unit);
+
+                for stmt in checked_body.iter() {
+                    match &stmt.statement {
+                        ast::Statement::Expression(expr) => {
+                            match &expr.expression {
+                                ast::Expression::BreakExpression { type_, .. } => {
+                                    if let Some(t) = type_ {
+                                        if ty != *t {
+                                            let error = TypeError::new(
+                                                format!("Type mismatch: expected {}, found {}", ty, t),
+                                                expr.start,
+                                                expr.end,
+                                            ).with_tip("Break expression must have the same type as the loop".to_string());
+                                            return Err(error);
+                                        }
+                                    }
+                                }
+                                _ => {}
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                
+                Ok((ast::Type::Unit, ast::Expression::LoopExpression { type_: ty, body: checked_body}))
             }
             crate::ast::Expression::BreakExpression { label, expression } => {
                 if let Some(expression) = expression {

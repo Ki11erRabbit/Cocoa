@@ -318,6 +318,7 @@ struct BlockTable {
     current_block: usize,
     block_count: u64,
     labeled_blocks: HashMap<String, u64>,
+    start_blocks: Vec<u64>,
     exit_blocks: Vec<u64>,
 }
 
@@ -328,6 +329,7 @@ impl BlockTable {
             current_block: 0,
             block_count: 0,
             labeled_blocks: HashMap::new(),
+            start_blocks: Vec::new(),
             exit_blocks: Vec::new(),
         }
     }
@@ -365,6 +367,18 @@ impl BlockTable {
 
     pub fn set_block(&mut self, name: &str) {
         self.current_block = self.labeled_blocks.get(name).unwrap().clone() as usize;
+    }
+
+    pub fn push_start_block(&mut self, block: u64) {
+        self.start_blocks.push(block);
+    }
+
+    pub fn pop_start_block(&mut self) -> u64 {
+        self.start_blocks.pop().unwrap()
+    }
+
+    pub fn get_start_block(&self) -> u64 {
+        *self.start_blocks.last().unwrap()
     }
 
     pub fn push_exit_block(&mut self, block: u64) {
@@ -429,6 +443,18 @@ impl StatementsCompiler {
         self.block_table.get_block(index)
     }
 
+    fn push_start_block(&mut self, block: u64) {
+        self.block_table.push_start_block(block);
+    }
+
+    fn pop_start_block(&mut self) -> u64 {
+        self.block_table.pop_start_block()
+    }
+
+    fn get_start_block(&self) -> u64 {
+        self.block_table.get_start_block()
+    }
+
     fn push_exit_block(&mut self, block: u64) {
         self.block_table.push_exit_block(block);
     }
@@ -467,7 +493,7 @@ impl StatementsCompiler {
             Statement::HangingExpression(expr) => {
                 self.compile_expression(constant_pool, expr);
                 //TODO: Check that it is at the end of a function
-                self.bytecode.push(Bytecode::Return);
+                //self.bytecode.push(Bytecode::Return);
             }
             Statement::LetStatement { binding, expression, .. } => {
                 if let Pattern::Identifier(name) = &binding.pattern {
@@ -484,16 +510,26 @@ impl StatementsCompiler {
                 }
             }
             Statement::WhileStatement { condition, body } => {
-                self.compile_while_statement(constant_pool, condition, body);
+                self.compile_while_statement(constant_pool, condition, body, None, None);
             }
         }
     }
 
-    fn compile_while_statement(&mut self, constant_pool: &mut ConstantPool, condition: &SpannedExpression, body: &[SpannedStatement]) {
-        let condition_block = self.add_block();
+    fn compile_while_statement(&mut self, constant_pool: &mut ConstantPool, condition: &SpannedExpression, body: &[SpannedStatement], start_block: Option<u64>, exit_block: Option<u64>) {
+        let condition_block = if let Some(block) = start_block {
+            block
+        } else {
+            self.add_block()
+        };
         self.bytecode.push(Bytecode::Goto(condition_block));
         self.bytecode.push(Bytecode::StartBlock(condition_block));
-        self.compile_while_conditional(constant_pool, condition);
+        let exit_block = if let Some(block) = exit_block {
+            block
+        } else {
+            self.add_block()
+        };
+        self.compile_while_conditional(constant_pool, condition, condition_block, exit_block);
+
 
         //self.stack.push_frame();
         let body_block = self.add_block();
@@ -504,13 +540,12 @@ impl StatementsCompiler {
         //self.stack.pop_frame();
 
         self.bytecode.push(Bytecode::Goto(condition_block));
-        let next_block = self.add_block();
-        self.bytecode.push(Bytecode::StartBlock(next_block));
+        self.bytecode.push(Bytecode::StartBlock(exit_block));
     }
 
-    fn compile_while_conditional(&mut self, constant_pool: &mut ConstantPool, condition: &SpannedExpression) {
+    fn compile_while_conditional(&mut self, constant_pool: &mut ConstantPool, condition: &SpannedExpression, body_block: u64, exit_block: u64) {
         self.compile_expression(constant_pool, condition);
-        let if_instruction = Bytecode::If(self.current_block() + 1, self.current_block() + 2);
+        let if_instruction = Bytecode::If(body_block, exit_block);
         self.bytecode.push(if_instruction);
     }
 
@@ -1114,6 +1149,7 @@ impl StatementsCompiler {
             Expression::Label { name, body } => {
                 let block_id = self.add_block();
                 self.label_block(&format!("{} entry", name));
+                self.push_start_block(block_id);
                 self.bytecode.push(Bytecode::Goto(block_id));
                 self.bytecode.push(Bytecode::StartBlock(block_id));
                 let exit_block = self.add_block();
@@ -1123,7 +1159,12 @@ impl StatementsCompiler {
                 self.previous_block();
                 let ty = match body {
                     Either::Left(statement) => {
-                        self.compile_statement(constant_pool, statement);
+                        match &statement.statement {
+                            Statement::WhileStatement { condition, body } => {
+                                self.compile_while_statement(constant_pool, condition, body, Some(block_id), Some(exit_block));
+                            }
+                            _ => panic!("expected while or for statement"),
+                        }
                         Type::Unit
                     }
                     Either::Right(expr) => {
@@ -1131,6 +1172,8 @@ impl StatementsCompiler {
                         ty
                     }
                 };
+                self.pop_exit_block();
+                self.pop_start_block();
                 self.bytecode.push(Bytecode::StartBlock(exit_block));
                 self.set_block(&exit_block_name);
                 ty
