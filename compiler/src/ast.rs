@@ -1,3 +1,5 @@
+use either::Either;
+
 
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
@@ -97,6 +99,18 @@ pub enum Expression {
     },
     Literal(Literal),
     Variable(String),
+    Label {
+        name: String,
+        body: Either<Box<SpannedStatement>, Box<SpannedExpression>>,
+    },
+    LoopExpression {
+        body: Vec<SpannedStatement>,
+    },
+    BreakExpression {
+        label: Option<String>,
+        expression: Option<Box<SpannedExpression>>,
+    },
+    ReturnExpression(Option<Box<SpannedExpression>>),
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]

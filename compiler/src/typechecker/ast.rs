@@ -1,3 +1,5 @@
+use either::Either;
+
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct SpannedType {
@@ -144,6 +146,20 @@ pub enum Expression {
     },
     Literal(Literal),
     Variable(String),
+    Label {
+        name: String,
+        body: Either<Box<SpannedStatement>, Box<SpannedExpression>>,
+    },
+    LoopExpression {
+        type_: Type,
+        body: Vec<SpannedStatement>,
+    },
+    BreakExpression {
+        type_: Option<Type>,
+        label: Option<String>,
+        expression: Option<Box<SpannedExpression>>,
+    },
+    ReturnExpression(Option<Box<SpannedExpression>>),
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]

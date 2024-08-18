@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use either::Either;
+
 
 pub mod ast;
 
@@ -449,7 +451,90 @@ impl TypeChecker {
                     _ => todo!("Implement type checking for other binary operators"),
                 }
             }
+            crate::ast::Expression::Label { name, body } => {
+                let body = match body {
+                    Either::Right(expr) => {
+                        let (ty, expr) = self.check_expression(*expr, coerce_to.clone())?;
+                        if let Some(cty) = coerce_to.clone() {
+                            if ty != cty {
+                                let error = TypeError::new(
+                                    format!("Type mismatch: expected {}, found {}", ty, ty),
+                                    expr_start,
+                                    expr_end,
+                                ).with_tip("Label body must have the same type as the label".to_string());
+                                return Err(error);
+                            }
+                        }
+                        ast::Expression::Label {
+                            name,
+                            body: Either::Right(Box::new(ast::SpannedExpression {
+                                expression: expr,
+                                start: expr_start,
+                                end: expr_end,
+                            })),
+                        }
+                    }
+                    Either::Left(stmt) => {
+                        let checked_stmt = match self.check_statement(*stmt) {
+                            Ok(stmt) => stmt,
+                            Err(error) => return Err(error),
+                        };
+                        ast::Expression::Label {
+                            name,
+                            body: Either::Left(Box::new(checked_stmt)),
+                        }
+                    }
+                };
+                match coerce_to {
+                    Some(ty) => {
+                        Ok((ty, body))
+                    }
+                    None => Ok((ast::Type::Unit, body)),
+                }
+            }
+            crate::ast::Expression::LoopExpression { body } => {
+                let checked_body = match self.check_statements(body) {
+                    Ok(statements) => statements,
+                    Err(()) => return Err(TypeError::new("Error in loop body".to_string(), expr_start, expr_end)),
+                };
+                Ok((ast::Type::Unit, ast::Expression::LoopExpression { body: checked_body}))
+            }
+            crate::ast::Expression::BreakExpression { label, expression } => {
+                if let Some(expression) = expression {
+                    let expression_start = expression.start;
+                    let expression_end = expression.end;
+                    let (ty, expr) = self.check_expression(*expression, None)?;
+                    Ok((ty.clone(), ast::Expression::BreakExpression {
+                        type_: Some(ty),
+                        label,
+                        expression: Some(Box::new(ast::SpannedExpression {
+                            expression: expr,
+                            start: expression_start,
+                            end: expression_end,
+                        })),
+                    }))
+                } else {
+                    Ok((ast::Type::Unit, ast::Expression::BreakExpression { type_: None, label, expression: None }))
+                }
+            }
+            crate::ast::Expression::ReturnExpression(expr) => {
+                // TODO: Implement checking of return type
+                if let Some(expr) = expr {
+                    let expression_start = expr.start;
+                    let expression_end = expr.end;
+                    let (ty, expr) = self.check_expression(*expr, None)?;
+                    Ok((ty.clone(), ast::Expression::ReturnExpression(Some(Box::new(ast::SpannedExpression {
+                        expression: expr,
+                        start: expression_start,
+                        end: expression_end,
+                    }))))
+                    )
+                } else {
+                    Ok((ast::Type::Unit, ast::Expression::ReturnExpression(None)))
+                }
+            }
             _ => todo!("Implement type checking for other expressions"),
         }
     }
+
 }

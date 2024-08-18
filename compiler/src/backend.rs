@@ -2,6 +2,7 @@
 use std::collections::HashMap;
 
 use bytecode::Bytecode;
+use either::Either;
 
 use crate::typechecker::ast::{BinaryOperator, Expression, Lhs, Pattern, PrefixOperator, SpannedExpression, SpannedPattern, SpannedStatement, SpannedType, Statement};
 
@@ -25,9 +26,50 @@ pub enum Type {
     Char,
     Object,
     Str,
+    Unit,
 }
 
+impl From<crate::typechecker::ast::Type> for Type {
+    fn from(type_: crate::typechecker::ast::Type) -> Self {
+        match type_ {
+            crate::typechecker::ast::Type::Unit => Self::Unit,
+            crate::typechecker::ast::Type::Bool => todo!(),
+            crate::typechecker::ast::Type::Char => Self::Char,
+            crate::typechecker::ast::Type::I8 => Self::I8,
+            crate::typechecker::ast::Type::I16 => Self::I16,
+            crate::typechecker::ast::Type::I32 => Self::I32,
+            crate::typechecker::ast::Type::I64 => Self::I64,
+            crate::typechecker::ast::Type::U8 => Self::U8,
+            crate::typechecker::ast::Type::U16 => Self::U16,
+            crate::typechecker::ast::Type::U32 => Self::U32,
+            crate::typechecker::ast::Type::U64 => Self::U64,
+            crate::typechecker::ast::Type::F32 => Self::F32,
+            crate::typechecker::ast::Type::F64 => Self::F64,
+            _ => todo!(),
+        }
+    }
+}
 
+impl From<&crate::typechecker::ast::Type> for Type {
+    fn from(type_: &crate::typechecker::ast::Type) -> Self {
+        match type_ {
+            crate::typechecker::ast::Type::Unit => Self::Unit,
+            crate::typechecker::ast::Type::Bool => todo!(),
+            crate::typechecker::ast::Type::Char => Self::Char,
+            crate::typechecker::ast::Type::I8 => Self::I8,
+            crate::typechecker::ast::Type::I16 => Self::I16,
+            crate::typechecker::ast::Type::I32 => Self::I32,
+            crate::typechecker::ast::Type::I64 => Self::I64,
+            crate::typechecker::ast::Type::U8 => Self::U8,
+            crate::typechecker::ast::Type::U16 => Self::U16,
+            crate::typechecker::ast::Type::U32 => Self::U32,
+            crate::typechecker::ast::Type::U64 => Self::U64,
+            crate::typechecker::ast::Type::F32 => Self::F32,
+            crate::typechecker::ast::Type::F64 => Self::F64,
+            _ => todo!(),
+        }
+    }
+}
 impl From<Value> for Type {
     fn from(value: Value) -> Self {
         match value {
@@ -64,6 +106,7 @@ impl From<Type> for u8 {
             Type::Char => 10,
             Type::Object => 11,
             Type::Str => 12,
+            Type::Unit => 13,
         }
     }
 }
@@ -101,6 +144,7 @@ impl From<Type> for Value {
             Type::Char => Value::Char('\0'),
             Type::Object => Value::Object,
             Type::Str => Value::Str,
+            Type::Unit => Value::U8(0),
         }
     }
 }
@@ -269,11 +313,78 @@ impl Stack {
     }
 }
 
+struct BlockTable {
+    real_blocks: Vec<u64>,
+    current_block: usize,
+    block_count: u64,
+    labeled_blocks: HashMap<String, u64>,
+    exit_blocks: Vec<u64>,
+}
+
+impl BlockTable {
+    pub fn new() -> Self {
+        BlockTable {
+            real_blocks: Vec::new(),
+            current_block: 0,
+            block_count: 0,
+            labeled_blocks: HashMap::new(),
+            exit_blocks: Vec::new(),
+        }
+    }
+
+    pub fn add_block(&mut self) -> u64 {
+        self.block_count += 1;
+        self.real_blocks.push(self.block_count);
+        self.current_block = self.block_count as usize;
+        self.block_count
+    }
+
+    pub fn current_block(&self) -> u64 {
+        self.block_count
+    }
+
+    pub fn next_block(&mut self) {
+        self.current_block += 1;
+    }
+
+    pub fn previous_block(&mut self) {
+        self.current_block -= 1;
+    }
+
+    pub fn get_block(&self, index: usize) -> u64 {
+        self.real_blocks[index]
+    }
+
+    pub fn label_block(&mut self, name: &str) {
+        self.labeled_blocks.insert(name.to_string(), self.current_block as u64);
+    }
+
+    pub fn get_label(&self, name: &str) -> u64 {
+        *self.labeled_blocks.get(name).unwrap()
+    }
+
+    pub fn set_block(&mut self, name: &str) {
+        self.current_block = self.labeled_blocks.get(name).unwrap().clone() as usize;
+    }
+
+    pub fn push_exit_block(&mut self, block: u64) {
+        self.exit_blocks.push(block);
+    }
+
+    pub fn pop_exit_block(&mut self) -> u64 {
+        self.exit_blocks.pop().unwrap()
+    }
+
+    pub fn get_exit_block(&self) -> u64 {
+        *self.exit_blocks.last().unwrap()
+    }
+}
+
 
 pub struct StatementsCompiler {
     stack: Stack,
     bytecode: Vec<Bytecode>,
-    block_count: u64,
+    block_table: BlockTable,
 }
 
 
@@ -282,17 +393,52 @@ impl StatementsCompiler {
         StatementsCompiler {
             stack: Stack::new(),
             bytecode: Vec::new(),
-            block_count: 0,
+            block_table: BlockTable::new(),
         }
     }
 
     fn add_block(&mut self) -> u64 {
-        self.block_count += 1;
-        self.block_count
+        self.block_table.add_block()
     }
 
     fn current_block(&self) -> u64 {
-        self.block_count
+        self.block_table.current_block()
+    }
+
+    fn next_block(&mut self) {
+        self.block_table.next_block()
+    }
+
+    fn previous_block(&mut self) {
+        self.block_table.previous_block()
+    }
+
+    fn label_block(&mut self, name: &str) {
+        self.block_table.label_block(name);
+    }
+
+    fn get_label(&self, name: &str) -> u64 {
+        self.block_table.get_label(name)
+    }
+
+    fn set_block(&mut self, name: &str) {
+        self.block_table.set_block(name);
+    }
+
+    fn get_block(&self, index: usize) -> u64 {
+        self.block_table.get_block(index)
+    }
+
+    fn push_exit_block(&mut self, block: u64) {
+        self.block_table.push_exit_block(block);
+    }
+
+    fn pop_exit_block(&mut self) -> u64 {
+        self.block_table.pop_exit_block()
+    }
+
+    fn get_exit_block(&self) -> u64 {
+        self.block_table.get_exit_block()
     }
 
     fn bind_local(&mut self, name: &str, ty: Type) {
@@ -965,7 +1111,71 @@ impl StatementsCompiler {
             Expression::Variable(name) => {
                 self.lookup_local(name).into()
             }
+            Expression::Label { name, body } => {
+                let block_id = self.add_block();
+                self.label_block(&format!("{} entry", name));
+                self.bytecode.push(Bytecode::Goto(block_id));
+                self.bytecode.push(Bytecode::StartBlock(block_id));
+                let exit_block = self.add_block();
+                let exit_block_name = format!("{} exit", name);
+                self.label_block(&exit_block_name);
+                self.push_exit_block(exit_block);
+                self.previous_block();
+                let ty = match body {
+                    Either::Left(statement) => {
+                        self.compile_statement(constant_pool, statement);
+                        Type::Unit
+                    }
+                    Either::Right(expr) => {
+                        let ty = self.compile_loop_expression(constant_pool, &expr.expression);
+                        ty
+                    }
+                };
+                self.bytecode.push(Bytecode::StartBlock(exit_block));
+                self.set_block(&exit_block_name);
+                ty
+            }
+            Expression::LoopExpression { .. } => {
+                self.compile_loop_expression(constant_pool, &expr.expression)
+            }
+            Expression::BreakExpression { label, expression, .. } => {
+                let block_id = if let Some(label) = label {
+                    self.get_label(&format!("{} exit", label))
+                } else {
+                    self.get_exit_block()
+                };
+                if let Some(expr) = expression {
+                    let ty = self.compile_expression(constant_pool, expr);
+                    self.bytecode.push(Bytecode::Goto(block_id));
+                    ty
+                } else {
+                    self.bytecode.push(Bytecode::Goto(block_id));
+                    Type::Unit
+                }
+            }
+            Expression::ReturnExpression(expr) => {
+                if let Some(expr) = expr {
+                    let ty = self.compile_expression(constant_pool, expr);
+                    self.bytecode.push(Bytecode::Return);
+                    ty
+                } else {
+                    self.bytecode.push(Bytecode::ReturnUnit);
+                    Type::Unit
+                }
+            }
         }
+    }
+
+    fn compile_loop_expression(&mut self, constant_pool: &mut ConstantPool, expr: &Expression) -> Type {
+        let Expression::LoopExpression { type_, body } = expr else {
+            panic!("expected loop expression");
+        };
+        let block_id = self.add_block();
+        self.bytecode.push(Bytecode::Goto(block_id));
+        self.bytecode.push(Bytecode::StartBlock(block_id));
+        self.compile_statements(constant_pool, body);
+        Bytecode::Goto(block_id);
+        type_.into()
     }
 
 }
@@ -973,7 +1183,7 @@ impl StatementsCompiler {
 impl IntoBinary for StatementsCompiler {
     fn into_binary(&self) -> Vec<u8> {
         let mut bytes = Vec::new();
-        bytes.extend_from_slice(&(self.block_count as u64).to_le_bytes());
+        bytes.extend_from_slice(&(self.block_table.block_count as u64).to_le_bytes());
         bytes.extend_from_slice(&(self.bytecode.len() as u64).to_le_bytes());
         for bytecode in &self.bytecode {
             bytes.extend_from_slice(&bytecode.into_binary());

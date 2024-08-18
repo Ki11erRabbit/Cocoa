@@ -1,5 +1,7 @@
 mod parse_table;
 
+use either::Either;
+
 use crate::{ast::{BinaryOperator, Expression, Literal, Pattern, PrefixOperator, SpannedExpression, SpannedPattern, SpannedStatement, SpannedType, Statement, Type}, lexer::{SpannedToken, Token}};
 
 use self::parse_table::ParseTable;
@@ -242,9 +244,47 @@ impl<'a> Parser<'a> {
 
     fn parse_expression(&mut self) -> ParseResult<SpannedExpression> {
 
+        if let Ok(SpannedToken { token: Token::Label(_) , start, end }) = self.peek() {
+            let start = *start;
+            let end = *end;
+            return self.parse_label_expression(start, end);
+        }
+        if let Ok(SpannedToken { token: Token::Loop, start, end }) = self.peek() {
+            let start = *start;
+            let end = *end;
+            return self.parse_loop_expression(start, end);
+        }
+        if let Ok(SpannedToken { token: Token::Break, start, end }) = self.peek() {
+            let start = *start;
+            let end = *end;
+            return self.parse_break_expression(start, end);
+        }
+        if let Ok(SpannedToken { token: Token::Return, start, end }) = self.peek() {
+            let start = *start;
+            let end = *end;
+            let SpannedToken { token: Token::Return, .. } = self.next()? else {
+                panic!("Expected return keyword after checking that it is a return keyword");
+            };
+            match self.parse_expression_for_statement() {
+                None => {
+                    return Ok(SpannedExpression {
+                        expression: Expression::ReturnExpression(None),
+                        start,
+                        end,
+                    });
+                }
+                Some(expr) => {
+                    let expr = expr?;
+                    let end = expr.end;
+                    return Ok(SpannedExpression {
+                        expression: Expression::ReturnExpression(Some(Box::new(expr))),
+                        start,
+                        end,
+                    });
+                }
+            }
+        }
         // TODO parse if expression
-        // TODO parse return expression
-        // TODO parse break expression
         // TODO parse closure expression
         self.parse_range_expression()
     }
@@ -675,6 +715,84 @@ impl<'a> Parser<'a> {
             start,
             end: body_end,
         });
+    }
+
+    fn parse_label_expression(&mut self, start: usize, end: usize) -> ParseResult<SpannedExpression> {
+        let Ok(SpannedToken { token: Token::Label(label), .. }) = self.next() else {
+            return Err(ParserError::new("Expected label", start, end));
+        };
+        let label = label.to_string();
+        match self.parse_expression_for_statement() {
+            None => {
+                let statement = self.parse_statement()?;
+                let end = statement.end;
+                return Ok(SpannedExpression {
+                    expression: Expression::Label {
+                        name: label,
+                        body: Either::Left(Box::new(statement)),
+                    },
+                    start,
+                    end,
+                });
+            }
+            Some(expr) => {
+                let expr = expr?;
+                let end = expr.end;
+                return Ok(SpannedExpression {
+                    expression: Expression::Label {
+                        name: label,
+                        body: Either::Right(Box::new(expr)),
+                    },
+                    start,
+                    end,
+                });
+            }
+        }
+    }
+
+    fn parse_break_expression(&mut self, start: usize, end: usize) -> ParseResult<SpannedExpression> {
+        let Ok(SpannedToken { token: Token::Break, .. }) = self.next() else {
+            return Err(ParserError::new("Expected break keyword", start, end));
+        };
+        let (label, label_end) = if let Ok(SpannedToken { token: Token::Label(_), .. }) = self.peek() {
+            let SpannedToken { token: Token::Label(label), end, .. } = self.next()? else {
+                panic!("Expected label after checking that it is a label");
+            };
+            (Some(label.to_string()), end)
+        } else {
+            (None, end)
+        };
+        let (expression, expression_end) = if let Ok(SpannedToken { token: Token::Semicolon, .. }) = self.peek() {
+            (None, label_end)
+        } else {
+            let expr = self.parse_expression()?;
+            let end = expr.end;
+            (Some(Box::new(expr)), end)
+        };
+
+        Ok(SpannedExpression {
+            expression: Expression::BreakExpression {
+                label,
+                expression,
+            },
+            start,
+            end: expression_end,
+        })
+    }
+
+    fn parse_loop_expression(&mut self, start: usize, end: usize) -> ParseResult<SpannedExpression> {
+        let Ok(SpannedToken { token: Token::Loop, .. }) = self.next() else {
+            return Err(ParserError::new("Expected loop keyword", start, end));
+        };
+        let body = self.parse_block()?;
+        let body_end = body.last().unwrap().end;
+        Ok(SpannedExpression {
+            expression: Expression::LoopExpression {
+                body,
+            },
+            start,
+            end: body_end,
+        })
     }
 }
 
