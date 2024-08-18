@@ -73,7 +73,7 @@ fn main() {
 
     let mut constant_pool = backend::ConstantPool::new();
     let mut backend = backend::StatementsCompiler::new();
-    backend.compile_statements(&mut constant_pool, &statements);
+    backend.start_compilation(&mut constant_pool, &statements);
 
     let mut output = constant_pool.into_binary();
     output.extend(backend.into_binary());

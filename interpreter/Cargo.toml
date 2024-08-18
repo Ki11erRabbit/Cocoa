@@ -7,5 +7,5 @@ edition = "2021"
 bytecode = { workspace = true }
 cranelift = "0.110.2"
 cranelift-native = "0.110.2"
-cranelift-jit = "0.110.2"
+cranelift-jit = { version = "0.110.2", features = ["selinux-fix"] }
 cranelift-module = "0.110.2"

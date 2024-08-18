@@ -458,7 +458,7 @@ impl TypeChecker {
                         if let Some(cty) = coerce_to.clone() {
                             if ty != cty {
                                 let error = TypeError::new(
-                                    format!("Type mismatch: expected {}, found {}", ty, ty),
+                                    format!("Type mismatch: expected {}, found {}", cty, ty),
                                     expr_start,
                                     expr_end,
                                 ).with_tip("Label body must have the same type as the label".to_string());
@@ -499,7 +499,6 @@ impl TypeChecker {
                 };
 
                 let ty = coerce_to.clone().unwrap_or(ast::Type::Unit);
-
                 for stmt in checked_body.iter() {
                     match &stmt.statement {
                         ast::Statement::Expression(expr) => {
@@ -523,7 +522,7 @@ impl TypeChecker {
                     }
                 }
                 
-                Ok((ast::Type::Unit, ast::Expression::LoopExpression { type_: ty, body: checked_body}))
+                Ok((ty.clone(), ast::Expression::LoopExpression { type_: ty, body: checked_body}))
             }
             crate::ast::Expression::BreakExpression { label, expression } => {
                 if let Some(expression) = expression {
