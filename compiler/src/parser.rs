@@ -42,7 +42,8 @@ impl<'a> Parser<'a> {
     }
 
     pub fn next(&mut self) -> ParseResult<SpannedToken> {
-        self.parse_table.next()
+        let next = self.parse_table.next();
+        next
     }
 
     pub fn peek(&mut self) -> ParseResult<&SpannedToken> {
@@ -727,6 +728,11 @@ impl<'a> Parser<'a> {
             return Err(ParserError::new("Expected label", start, end));
         };
         let label = label.to_string();
+
+        let Ok(SpannedToken { token: Token::Colon, .. }) = self.next() else {
+            return Err(ParserError::new("Expected colon after label", start, end));
+        };
+        
         match self.parse_expression_for_statement() {
             None => {
                 let statement = self.parse_statement()?;
