@@ -40,6 +40,7 @@ impl TypeError {
 pub struct TypeChecker {
     pub errors: Vec<TypeError>,
     local_scope_stack: Vec<HashMap<String, ast::Type>>,
+    current_label: Option<String>,
 }
 
 
@@ -48,6 +49,7 @@ impl TypeChecker {
         Self {
             errors: Vec::new(),
             local_scope_stack: Vec::new(),
+            current_label: None,
         }
     }
 
@@ -128,6 +130,7 @@ impl TypeChecker {
                         let annotation: ast::Type = type_annotation.type_.into();
                         let expression_start = expression.start;
                         let expression_end = expression.end;
+                        println!("{:?}", annotation);
                         let (ty, expr) = self.check_expression(expression, Some(annotation.clone()))?;
                         self.bind_variable(name.clone(), ty.clone());
                         if ty != annotation {
@@ -454,7 +457,9 @@ impl TypeChecker {
             crate::ast::Expression::Label { name, body } => {
                 let body = match body {
                     Either::Right(expr) => {
+                        self.current_label = Some(name.clone());
                         let (ty, expr) = self.check_expression(*expr, coerce_to.clone())?;
+                        self.current_label = None;
                         if let Some(cty) = coerce_to.clone() {
                             if ty != cty {
                                 let error = TypeError::new(
@@ -497,30 +502,23 @@ impl TypeChecker {
                     Ok(statements) => statements,
                     Err(()) => return Err(TypeError::new("Error in loop body".to_string(), expr_start, expr_end)),
                 };
-
                 let ty = coerce_to.clone().unwrap_or(ast::Type::Unit);
-                for stmt in checked_body.iter() {
-                    match &stmt.statement {
-                        ast::Statement::Expression(expr) => {
-                            match &expr.expression {
-                                ast::Expression::BreakExpression { type_, .. } => {
-                                    if let Some(t) = type_ {
-                                        if ty != *t {
-                                            let error = TypeError::new(
-                                                format!("Type mismatch: expected {}, found {}", ty, t),
-                                                expr.start,
-                                                expr.end,
-                                            ).with_tip("Break expression must have the same type as the loop".to_string());
-                                            return Err(error);
-                                        }
-                                    }
-                                }
-                                _ => {}
-                            }
-                        }
-                        _ => {}
+
+                let breaks = Self::find_breaks(&checked_body, &self.current_label);
+
+                for break_ in breaks {
+                    let ast::Expression::BreakExpression { type_, .. } = break_ else {
+                        panic!("Non-breaks found when only breaks should have been added");
+                    };
+
+                    let break_type = type_.clone().unwrap_or(ast::Type::Unit);
+                    
+                    if break_type != ty {
+                        return Err(TypeError::new("Break statement type mismatch".to_string(), 0, 0));
                     }
+                    
                 }
+                
                 
                 Ok((ty.clone(), ast::Expression::LoopExpression { type_: ty, body: checked_body}))
             }
@@ -564,5 +562,71 @@ impl TypeChecker {
             _ => todo!("Implement type checking for other expressions"),
         }
     }
+
+
+    fn find_breaks<'a>(body: &'a Vec<ast::SpannedStatement>, current_label: &Option<String>) -> Vec<&'a ast::Expression> {
+        let mut loop_stack = Vec::new();
+        let mut breaks = Vec::new();
+        Self::explore_statements(body, current_label, &mut loop_stack, &mut breaks);
+        breaks
+    }
+
+    fn explore_statements<'a>(body: &'a Vec<ast::SpannedStatement>, current_label: &Option<String>, loop_stack: &mut Vec<()>, breaks: &mut Vec<&'a ast::Expression>) {
+        for statement in body {
+            Self::explore_statement(statement, current_label, loop_stack, breaks);
+        }
+    }
+
+    fn explore_statement<'a>(statement: &'a ast::SpannedStatement, current_label: &Option<String>, loop_stack: &mut Vec<()>, breaks: &mut Vec<&'a ast::Expression>) {
+        let ast::SpannedStatement { statement, .. } = statement;
+        match statement {
+            ast::Statement::WhileStatement { body, .. } => {
+                loop_stack.push(());
+                Self::explore_statements(body, current_label, loop_stack, breaks);
+                loop_stack.pop();
+            }
+            ast::Statement::Expression(expr) | ast::Statement::HangingExpression(expr) => {
+                let ast::SpannedExpression { expression, .. } = expr;
+                Self::explore_expression(expression, current_label, loop_stack, breaks);
+            }
+            _ => {}
+        }
+    }
+
+    fn explore_expression<'a>(expr: &'a ast::Expression, current_label: &Option<String>, loop_stack: &mut Vec<()>, breaks: &mut Vec<&'a ast::Expression>) {
+        match expr {
+            ast::Expression::BreakExpression { label, .. } => {
+                if let Some(label) = label {
+                    if let Some(current_label) = current_label {
+                        if label == current_label {
+                            breaks.push(expr);
+                        }
+                    }
+                } else {
+                    if loop_stack.is_empty() {
+                        breaks.push(expr);
+                    }
+                }
+            }
+            ast::Expression::LoopExpression { body, ..  } => {
+                loop_stack.push(());
+                Self::explore_statements(body, current_label, loop_stack, breaks);
+                loop_stack.pop();
+            }
+            ast::Expression::Label { body, .. } => {
+                match body {
+                    Either::Left(stmt) => {
+                        Self::explore_statement(stmt, current_label, loop_stack, breaks);
+                    }
+                    Either::Right(expr) => {
+                        let ast::SpannedExpression { expression, .. } = expr.as_ref();
+                        Self::explore_expression(&expression, current_label, loop_stack, breaks);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
 
 }

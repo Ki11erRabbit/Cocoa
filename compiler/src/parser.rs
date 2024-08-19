@@ -284,6 +284,11 @@ impl<'a> Parser<'a> {
                 }
             }
         }
+        if let Ok(SpannedToken { token: Token::Continue, start, end }) = self.peek() {
+            let start = *start;
+            let end = *end;
+            return self.parse_continue_expression(start, end);
+        }
         // TODO parse if expression
         // TODO parse closure expression
         self.parse_range_expression()
@@ -792,6 +797,25 @@ impl<'a> Parser<'a> {
             },
             start,
             end: body_end,
+        })
+    }
+
+    fn parse_continue_expression(&mut self, start: usize, end: usize) -> ParseResult<SpannedExpression> {
+        let Ok(SpannedToken { token: Token::Continue, .. }) = self.next() else {
+            return Err(ParserError::new("Expected continue keyword", start, end));
+        };
+        let (label, label_end) = if let Ok(SpannedToken { token: Token::Label(_), .. }) = self.peek() {
+            let SpannedToken { token: Token::Label(label), end, .. } = self.next()? else {
+                panic!("Expected label after checking that it is a label");
+            };
+            (Some(label.to_string()), end)
+        } else {
+            (None, end)
+        };
+        Ok(SpannedExpression {
+            expression: Expression::ContinueExpression(label),
+            start,
+            end: label_end,
         })
     }
 }
