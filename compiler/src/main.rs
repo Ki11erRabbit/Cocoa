@@ -45,7 +45,7 @@ fn main() {
     };
 
     let mut typechecker = typechecker::TypeChecker::new();
-    let statements = match typechecker.check_statements(statement, None) {
+    let (_, statements) = match typechecker.check_statements(statement, None) {
         Ok(statements) => statements,
         Err(()) => {
             for error in typechecker.errors.iter() {

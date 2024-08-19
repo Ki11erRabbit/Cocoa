@@ -1,6 +1,6 @@
 use bytecode::Bytecode;
 use cranelift_module::{DataDescription, Linkage, Module};
-use cranelift::prelude::*;
+use cranelift::{codegen::verify_function, prelude::*};
 use cranelift_jit::{JITBuilder, JITModule};
 
 
@@ -168,6 +168,14 @@ impl Jit {
         let mut trans = FunctionTranslator::new(builder, &mut self.module, &self.constants, block_count);
 
         trans.translate(self.bytecode.iter());
+
+        let flags = settings::Flags::new(settings::builder());
+        let res = verify_function(&trans.builder.func, &flags);
+        println!("{}", trans.builder.func.display());
+        if let Err(errors) = res {
+            println!("{}", errors);
+            panic!("Verification failed");
+        }
 
         trans.builder.finalize();
 

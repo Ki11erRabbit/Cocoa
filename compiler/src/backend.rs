@@ -510,19 +510,22 @@ impl StatementsCompiler {
         self.compile_statements(constant_pool, statements);
     }
 
-    pub fn compile_statements(&mut self, constant_pool: &mut ConstantPool, statements: &[SpannedStatement]) {
+    pub fn compile_statements(&mut self, constant_pool: &mut ConstantPool, statements: &[SpannedStatement]) -> Type {
+        let mut type_ = Type::Unit;
         for statement in statements {
-            self.compile_statement(constant_pool, statement);
+            type_ = self.compile_statement(constant_pool, statement);
         }
+        type_
     }
 
-    pub fn compile_statement(&mut self, constant_pool: &mut ConstantPool, statement: &SpannedStatement) {
+    pub fn compile_statement(&mut self, constant_pool: &mut ConstantPool, statement: &SpannedStatement) -> Type {
         match &statement.statement {
             Statement::Expression(expr) => {
                 self.compile_expression(constant_pool, expr);
+                Type::Unit
             }
             Statement::HangingExpression(expr) => {
-                self.compile_expression(constant_pool, expr);
+                self.compile_expression(constant_pool, expr)
                 //TODO: Check that it is at the end of a function
                 //self.bytecode.push(Bytecode::Return);
             }
@@ -531,6 +534,7 @@ impl StatementsCompiler {
                     let ty = self.compile_expression(constant_pool, expression);
                     self.bind_local(name, ty);
                 }
+                Type::Unit
             }
             Statement::Assignment { binding, expression } => {
                 let ty = self.compile_expression(constant_pool, expression);
@@ -539,9 +543,11 @@ impl StatementsCompiler {
                         self.bind_local(name, ty);
                     }
                 }
+                Type::Unit
             }
             Statement::WhileStatement { condition, body } => {
                 self.compile_while_statement(constant_pool, condition, body, None, None);
+                Type::Unit
             }
         }
     }
@@ -1253,12 +1259,15 @@ impl StatementsCompiler {
                 Type::Unit
             }
             Expression::IfExpression { condition, then, else_ } => {
-                let ty = self.compile_expression(constant_pool, condition);
+                let _ = self.compile_expression(constant_pool, condition);
                 let then_block = self.add_block();
                 let else_block = self.add_block();
+                let exit_block = self.add_block();
                 self.bytecode.push(Bytecode::If(then_block, else_block));
                 self.bytecode.push(Bytecode::StartBlock(then_block));
-                self.compile_statements(constant_pool, then);
+                let ty = self.compile_statements(constant_pool, then);
+                self.bytecode.push(Bytecode::Goto(exit_block));
+
                 self.bytecode.push(Bytecode::StartBlock(else_block));
                 match else_ {
                     None => {}
@@ -1269,7 +1278,9 @@ impl StatementsCompiler {
                         self.compile_expression(constant_pool, else_if);
                     }
                 }
-
+                self.bytecode.push(Bytecode::Goto(exit_block));
+                self.bytecode.push(Bytecode::StartBlock(exit_block));
+                
                 ty
             }
         }
