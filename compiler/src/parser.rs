@@ -151,9 +151,9 @@ impl<'a> Parser<'a> {
                         let start = expr.start;
                         let end = expr.end;
                         return Ok(SpannedStatement {
-                        statement: Statement::HangingExpression(expr),
-                        start,
-                        end,
+                            statement: Statement::HangingExpression(expr),
+                            start,
+                            end,
                         })
                     },
                 }
@@ -290,9 +290,59 @@ impl<'a> Parser<'a> {
             let end = *end;
             return self.parse_continue_expression(start, end);
         }
-        // TODO parse if expression
+        if let Ok(SpannedToken { token: Token::If, start, end }) = self.peek() {
+            let start = *start;
+            let end = *end;
+            return self.parse_if_expression(start, end);
+        }
         // TODO parse closure expression
         self.parse_range_expression()
+    }
+
+    fn parse_if_expression(&mut self, start: usize, end: usize) -> ParseResult<SpannedExpression> {
+        let SpannedToken { token: Token::If, .. } = self.next()? else {
+            panic!("Expected if keyword after checking that it is an if keyword");
+        };
+        let condition = self.parse_expression()?;
+        let then = self.parse_block()?;
+
+        let else_ = match self.peek() {
+            Ok(SpannedToken { token: Token::Else, .. }) => {
+                self.next()?;
+                match self.peek() {
+                    Ok(SpannedToken { token: Token::If, .. }) => {
+                        let expr = self.parse_if_expression(start, end)?;
+                        Some(Either::Right(Box::new(expr)))
+                    }
+                    _ => {
+                        let block = self.parse_block()?;
+                        Some(Either::Left(block))
+                    }
+                }
+            }
+            _ => {
+                None
+            }
+        };
+
+        let end = if let Some(Either::Left(block)) = &else_ {
+            block.last().unwrap().end
+        } else if let Some(Either::Right(expr)) = &else_ {
+            expr.end
+        } else {
+            then.last().unwrap().end
+        };
+
+        Ok(SpannedExpression {
+            expression: Expression::IfExpression {
+                condition: Box::new(condition),
+                then,
+                else_,
+            },
+            start,
+            end,
+        })
+
     }
 
     fn parse_range_expression(&mut self) -> ParseResult<SpannedExpression> {

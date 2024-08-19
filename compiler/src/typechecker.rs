@@ -576,6 +576,52 @@ impl TypeChecker {
             crate::ast::Expression::ContinueExpression(label) => {
                 Ok((ast::Type::Unit, ast::Expression::ContinueExpression(label)))
             }
+            crate::ast::Expression::IfExpression { condition, then, else_ } => {
+                let condition_start = condition.start;
+                let condition_end = condition.end;
+                let (ty, condition) = self.check_expression(*condition, None)?;
+                if ty != ast::Type::Bool {
+                    let err = TypeError::new("If expression condition is not a boolean".to_string(), expr_start, expr_end);
+                    return Err(err);
+                }
+                let then = match self.check_statements(then, coerce_to.clone()) {
+                    Err(()) => {
+                        let err = TypeError::new("Error in if expression".to_string(), expr_start, expr_end);
+                        return Err(err);
+                    },
+                    Ok(x) => x,
+                };
+                let else_ = match else_ {
+                    None => None,
+                    Some(Either::Left(else_body)) => {
+                        let Ok(body) = self.check_statements(else_body, coerce_to) else {
+                            let err = TypeError::new("Error in if expression else body".to_string(), expr_start, expr_end);
+                            return Err(err);
+                        };
+                        Some(Either::Left(body))
+                    }
+                    Some(Either::Right(if_else)) => {
+                        let if_else_start = if_else.start;
+                        let if_else_end = if_else.end;
+                        let (_, if_else) = self.check_expression(*if_else, coerce_to)?;
+                        let if_else = ast::SpannedExpression {
+                            expression: if_else,
+                            start: if_else_start,
+                            end: if_else_end,
+                        };
+                        Some(Either::Right(Box::new(if_else)))
+                    }
+                };
+
+                Ok((ast::Type::Unit, ast::Expression::IfExpression {
+                    condition: Box::new(ast::SpannedExpression {
+                        expression: condition,
+                        start: condition_start,
+                        end: condition_end,
+                    }),
+                    then, else_ }))
+
+            }
             _ => todo!("Implement type checking for other expressions"),
         }
     }

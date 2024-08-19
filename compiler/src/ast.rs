@@ -112,6 +112,11 @@ pub enum Expression {
     },
     ReturnExpression(Option<Box<SpannedExpression>>),
     ContinueExpression(Option<String>),
+    IfExpression {
+        condition: Box<SpannedExpression>,
+        then: Vec<SpannedStatement>,
+        else_: Option<Either<Vec<SpannedStatement>, Box<SpannedExpression>>>,
+    },
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
