@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use bytecode::Bytecode;
 use cranelift_module::{DataDescription, Linkage, Module};
 use cranelift::{codegen::verify_function, prelude::*};
@@ -204,11 +206,14 @@ pub struct FunctionTranslator<'a> {
     module: &'a mut JITModule,
     constants: &'a ConstantPool,
     locals: Vec<Variable>,
+    locals_types: Vec<types::Type>,
     stack: Vec<Value>,
+    stack_types: Vec<types::Type>,
     arguments: Vec<Value>,
     next_variable: usize,
     blocks: Vec<Block>,
     current_block: usize,
+    block_arg_types: HashMap<u64, Vec<types::Type>>,
 }
 
 impl<'a> FunctionTranslator<'a> {
@@ -220,8 +225,10 @@ impl<'a> FunctionTranslator<'a> {
         block_count: u64
     ) -> Self {
         let mut locals = Vec::with_capacity(256);
+        let mut locals_types = Vec::with_capacity(256);
         for i in 0..256 {
             locals.push(Variable::new(i));
+            locals_types.push(types::I64);
         }
         let mut blocks = Vec::new();
         for _ in 0..=block_count {
@@ -232,11 +239,14 @@ impl<'a> FunctionTranslator<'a> {
             module,
             constants,
             locals,
+            locals_types,
             stack: Vec::new(),
+            stack_types: Vec::new(),
             arguments: Vec::new(),
             next_variable: 0,
             blocks,
             current_block: 0,
+            block_arg_types: HashMap::new(),
         }
     }
 
@@ -268,48 +278,59 @@ impl<'a> FunctionTranslator<'a> {
                             let slice = [val.to_le_bytes()[0], 0, 0, 0, 0, 0, 0, 0];
                             let val = self.builder.ins().iconst(types::I8, i64::from_le_bytes(slice));
                             self.stack.push(val);
+                            self.stack_types.push(types::I8);
+
                         }
                         Constant::U16(val) => {
                             let slice = [val.to_le_bytes()[0], val.to_le_bytes()[1], 0, 0, 0, 0, 0, 0];
                             let val = self.builder.ins().iconst(types::I16, i64::from_le_bytes(slice));
                             self.stack.push(val);
+                            self.stack_types.push(types::I16);
                         }
                         Constant::U32(val) => {
                             let slice = [val.to_le_bytes()[0], val.to_le_bytes()[1], val.to_le_bytes()[2], val.to_le_bytes()[3], 0, 0, 0, 0];
                             let val = self.builder.ins().iconst(types::I32, i64::from_le_bytes(slice));
                             self.stack.push(val);
+                            self.stack_types.push(types::I32);
                         }
                         Constant::U64(val) => {
                             let slice = [val.to_le_bytes()[0], val.to_le_bytes()[1], val.to_le_bytes()[2], val.to_le_bytes()[3], val.to_le_bytes()[4], val.to_le_bytes()[5], val.to_le_bytes()[6], val.to_le_bytes()[7]];
                             let val = self.builder.ins().iconst(types::I64, i64::from_le_bytes(slice));
                             self.stack.push(val);
+                            self.stack_types.push(types::I64);
                         }
                         Constant::I8(val) => {
                             let slice = [val.to_le_bytes()[0], 0, 0, 0, 0, 0, 0, 0];
                             let val = self.builder.ins().iconst(types::I8, i64::from_le_bytes(slice));
                             self.stack.push(val);
+                            self.stack_types.push(types::I8);
                         }
                         Constant::I16(val) => {
                             let slice = [val.to_le_bytes()[0], val.to_le_bytes()[1], 0, 0, 0, 0, 0, 0];
                             let val = self.builder.ins().iconst(types::I16, i64::from_le_bytes(slice));
                             self.stack.push(val);
+                            self.stack_types.push(types::I16);
                         }
                         Constant::I32(val) => {
                             let slice = [val.to_le_bytes()[0], val.to_le_bytes()[1], val.to_le_bytes()[2], val.to_le_bytes()[3], 0, 0, 0, 0];
                             let val = self.builder.ins().iconst(types::I32, i64::from_le_bytes(slice));
                             self.stack.push(val);
+                            self.stack_types.push(types::I32);
                         }
                         Constant::I64(val) => {
                             let val = self.builder.ins().iconst(types::I64, val);
                             self.stack.push(val);
+                            self.stack_types.push(types::I64);
                         }
                         Constant::F32(val) => {
                             let val = self.builder.ins().f32const(val);
                             self.stack.push(val);
+                            self.stack_types.push(types::F32);
                         }
                         Constant::F64(val) => {
                             let val = self.builder.ins().f64const(val);
                             self.stack.push(val);
+                            self.stack_types.push(types::F64);
                         }
                         Constant::Char(_) => {
                             unimplemented!();
@@ -321,16 +342,24 @@ impl<'a> FunctionTranslator<'a> {
                 }
                 Bytecode::Pop => {
                     self.stack.pop();
+                    self.stack_types.pop();
                 }
                 Bytecode::Dup => {
                     let val = self.stack.last().unwrap();
                     self.stack.push(*val);
+                    let ty = self.stack_types.last().unwrap();
+                    self.stack_types.push(*ty);
                 }
                 Bytecode::Swap => {
                     let val1 = self.stack.pop().unwrap();
+                    let val1_ty = self.stack_types.pop().unwrap();
                     let val2 = self.stack.pop().unwrap();
+                    let val2_ty = self.stack_types.pop().unwrap();
                     self.stack.push(val1);
+                    self.stack_types.push(val1_ty);
                     self.stack.push(val2);
+                    self.stack_types.push(val2_ty);
+
                 }
                 Bytecode::StoreLocal(index, ty) => {
                     let ty = match ty {
@@ -349,21 +378,29 @@ impl<'a> FunctionTranslator<'a> {
                     match self.builder.try_declare_var(self.locals[*index as usize], ty) {
                         Ok(_) => {
                             let val = self.stack.pop().unwrap();
+                            let val_ty = self.stack_types.pop().unwrap();
                             self.builder.def_var(self.locals[*index as usize], val);
+                            self.locals_types[*index as usize] = val_ty;
                         }
                         Err(_) => {
                             let val = self.stack.pop().unwrap();
+                            let val_ty = self.stack_types.pop().unwrap();
                             self.builder.def_var(self.locals[*index as usize], val);
+                            self.locals_types[*index as usize] = val_ty;
                         }
                     }
                 }
                 Bytecode::LoadLocal(index) => {
                     let val = self.builder.use_var(self.locals[*index as usize]);
                     self.stack.push(val);
+                    let ty = self.locals_types[*index as usize];
+                    self.stack_types.push(ty);
                 }
                 Bytecode::StoreArgument => {
                     let val = self.stack.pop().unwrap();
+                    let _ = self.stack_types.pop().unwrap();
                     self.arguments.push(val);
+
                 }
                 Bytecode::Addu8 => {
                     let val1 = self.stack.pop().unwrap();
@@ -1346,7 +1383,22 @@ impl<'a> FunctionTranslator<'a> {
                 // Implement convertions
                 Bytecode::Goto(blockid) => {
                     let block = self.blocks[*blockid as usize];
-                    self.builder.ins().jump(block, &[]);
+                    self.builder.ins().jump(block, &self.stack);
+
+                    let block = self.blocks[*blockid as usize];
+                    if let Some(_) = self.block_arg_types.get(blockid) {
+
+                    } else {
+                        let mut arg_types = Vec::new();
+                        for ty in self.stack_types.iter() {
+                            self.builder.append_block_param(block, *ty);
+                            arg_types.push(*ty);
+                        }
+
+                        self.block_arg_types.insert(*blockid, arg_types);
+                    }
+                    self.stack.clear();
+                    self.stack_types.clear();
                 }
                 // Implement Jump
                 Bytecode::If(then_id, else_id) => {
@@ -1354,14 +1406,47 @@ impl<'a> FunctionTranslator<'a> {
                     let else_block = self.blocks[*else_id as usize];
 
                     let val = self.stack.pop().unwrap();
+                    let _ = self.stack_types.pop().unwrap();
 
-                    self.builder.ins().brif(val, then_block, &[], else_block, &[]);
+                    self.builder.ins().brif(val, then_block, &self.stack, else_block, &self.stack);
 
+                    let block = self.blocks[*then_id as usize];
+                    if let Some(_) = self.block_arg_types.get(then_id) {
+
+                    } else {
+                        let mut arg_types = Vec::new();
+                        for ty in self.stack_types.iter() {
+                            self.builder.append_block_param(block, *ty);
+                            arg_types.push(*ty);
+                        }
+
+                        self.block_arg_types.insert(*then_id, arg_types);
+                    }
+                    let block = self.blocks[*else_id as usize];
+                    if let Some(_) = self.block_arg_types.get(else_id) {
+
+                    } else {
+                        let mut arg_types = Vec::new();
+                        for ty in self.stack_types.iter() {
+                            self.builder.append_block_param(block, *ty);
+                            arg_types.push(*ty);
+                        }
+
+                        self.block_arg_types.insert(*else_id, arg_types);
+                    }
+                    self.stack.clear();
+                    self.stack_types.clear();
                 }
                 Bytecode::StartBlock(block_id) => {
                     self.current_block = *block_id as usize;
                     let block = self.blocks[self.current_block];
                     self.builder.switch_to_block(block);
+
+                    self.stack.extend_from_slice(self.builder.block_params(block));
+                    if let Some(types) = self.block_arg_types.get(block_id) {
+                        self.stack_types.extend_from_slice(types)
+                    }
+                    
                 }
                 Bytecode::Return => {
                     let val = self.stack.pop().unwrap();
