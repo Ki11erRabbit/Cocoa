@@ -1,4 +1,4 @@
-use backend::IntoBinary;
+use definitions::IntoBinary;
 use parser::ParserError;
 use ariadne::{Label, Report, ReportKind, Source};
 

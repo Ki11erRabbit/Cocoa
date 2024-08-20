@@ -1,10 +1,10 @@
 [workspace]
 
 members = [ "bytecode","compiler" 
-    , "interpreter"]
+    , "definitions", "interpreter"]
 
 
 
 
 [workspace.dependencies]
-bytecode = { path = "bytecode" }
+definitions = { path = "definitions" }

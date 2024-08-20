@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use bytecode::Bytecode;
+use definitions::{FromBinary, bytecode::Bytecode};
 use cranelift_module::{DataDescription, Linkage, Module};
 use cranelift::{codegen::verify_function, prelude::*};
 use cranelift_jit::{JITBuilder, JITModule};

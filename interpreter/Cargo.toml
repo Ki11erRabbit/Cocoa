@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bytecode = { workspace = true }
+definitions = { workspace = true }
 cranelift = "0.110.2"
 cranelift-native = "0.110.2"
 cranelift-jit = { version = "0.110.2", features = ["selinux-fix"] }

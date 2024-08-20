@@ -1,15 +1,12 @@
 
 use std::collections::HashMap;
 
-use bytecode::Bytecode;
+use definitions::{IntoBinary, bytecode::Bytecode};
 use either::Either;
 
 use crate::typechecker::ast::{BinaryOperator, Expression, Lhs, Pattern, PrefixOperator, SpannedExpression, SpannedPattern, SpannedStatement, SpannedType, Statement};
 
 
-pub trait IntoBinary {
-    fn into_binary(&self) -> Vec<u8>;
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Type {
@@ -1331,83 +1328,3 @@ impl IntoBinary for StatementsCompiler {
 }
 
 
-impl IntoBinary for Bytecode {
-    fn into_binary(&self) -> Vec<u8> {
-        let mut bytes = Vec::new();
-        bytes.extend_from_slice(&self.into_instruction().to_le_bytes());
-        match self {
-            Bytecode::LoadConstant(index) => {
-                bytes.extend_from_slice(&index.to_le_bytes());
-            }
-            Bytecode::StoreConstant(index) => {
-                bytes.extend_from_slice(&index.to_le_bytes());
-            }
-            Bytecode::StoreLocal(index, ty) => {
-                bytes.push(*index);
-                bytes.push(*ty);
-            }
-            Bytecode::LoadLocal(index) => {
-                bytes.push(*index);
-            }
-            Bytecode::Convert(tag) => {
-                bytes.push(*tag);
-            }
-            Bytecode::BinaryConvert(tag) => {
-                bytes.push(*tag);
-            }
-            Bytecode::Goto(blockid) => {
-                bytes.extend_from_slice(&blockid.to_le_bytes());
-            }
-            Bytecode::If(blockid, elseid) => {
-                bytes.extend_from_slice(&blockid.to_le_bytes());
-                bytes.extend_from_slice(&elseid.to_le_bytes());
-            }
-            Bytecode::InvokeFunction(symbol) => {
-                bytes.extend_from_slice(&symbol.to_le_bytes());
-            }
-            Bytecode::InvokeFunctionTail(symbol) => {
-                bytes.extend_from_slice(&symbol.to_le_bytes());
-            }
-            Bytecode::InvokeTrait(symbol1, symbol2) => {
-                bytes.extend_from_slice(&symbol1.to_le_bytes());
-                bytes.extend_from_slice(&symbol2.to_le_bytes());
-            }
-            Bytecode::InvokeTraitTail(symbol1, symbol2) => {
-                bytes.extend_from_slice(&symbol1.to_le_bytes());
-                bytes.extend_from_slice(&symbol2.to_le_bytes());
-            }
-            Bytecode::CreateStruct(symbol) => {
-                bytes.extend_from_slice(&symbol.to_le_bytes());
-            }
-            Bytecode::CreateEnum(symbol) => {
-                bytes.extend_from_slice(&symbol.to_le_bytes());
-            }
-            Bytecode::IsA(symbol) => {
-                bytes.extend_from_slice(&symbol.to_le_bytes());
-            }
-            Bytecode::GetField(offset, tag) => {
-                bytes.extend_from_slice(&offset.to_le_bytes());
-                bytes.push(*tag);
-            }
-            Bytecode::SetField(offset, tag) => {
-                bytes.extend_from_slice(&offset.to_le_bytes());
-                bytes.push(*tag);
-            }
-            Bytecode::CreateArray(tag) => {
-                bytes.push(*tag);
-            }
-            Bytecode::ArrayGet(tag) => {
-                bytes.push(*tag);
-            }
-            Bytecode::ArraySet(tag) => {
-                bytes.push(*tag);
-            }
-            Bytecode::StartBlock(block_id) => {
-                bytes.extend_from_slice(&block_id.to_le_bytes());
-            }
-            _ => {}
-        }
-        bytes
-    }
-    
-}
