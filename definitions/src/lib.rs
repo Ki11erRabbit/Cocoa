@@ -2,6 +2,8 @@ pub mod bytecode;
 pub mod module;
 
 
+pub use module::Module;
+
 
 pub trait IntoBinary {
     fn into_binary(&self) -> Vec<u8>;
