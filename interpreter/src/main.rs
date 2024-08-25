@@ -1,4 +1,3 @@
-use bytecode::Bytecode;
 
 mod vm;
 

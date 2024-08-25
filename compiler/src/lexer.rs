@@ -319,54 +319,60 @@ impl<'a> LexerIterator<'a> for Lexer<'a> {
                         }
                     },
                     '\'' => {
-                        let mut size = 0;
-                        let mut found_backslash = false;
-                        let mut the_char = None;
-                        let mut the_label = None;
-                        let mut found_closing_quote = false;
-                        while let Some((i, c)) = self.get_next() {
-                            if c == '\'' && !found_backslash && size == 1 {
+                        let mut buffer = String::new();
+                        let mut count = 0;
+                        while let Some((i, c)) = self.peek_next() {
+                            let i = *i;
+                            if *c == '\'' {
                                 end = i;
-                                found_closing_quote = true;
+                                self.get_next();
                                 break;
-                            } else if !c.is_alphanumeric() && size > 1 {
-                                the_label = Some(Token::Label(&self.raw_input[start..=end]));
-                                the_char = None;
+                            } else if count > 1 && (c.is_whitespace() || *c == ':' || *c == ',' || *c == ';' || *c == ')' || *c == '}' || *c == ']')  {
                                 break;
-                            } else if c == '\\' && size == 0 {
-                                found_backslash = true;
-                            } else if found_backslash && size == 0 {
-                                found_backslash = false;
-                                match c {
-                                    'n' => the_char = Some('\n'),
-                                    'r' => the_char = Some('\r'),
-                                    't' => the_char = Some('\t'),
-                                    '\\' => the_char = Some('\\'),
-                                    '\'' => the_char = Some('\''),
-                                    _ => return Err(LexerError::Error {
-                                        message: "Invalid escape sequence".to_string(),
+                            } else if *c == '\\' {
+                                self.get_next();
+                                if let Some((i, c)) = self.get_next() {
+                                    end = i;
+                                    match c {
+                                        'n' => buffer.push('\n'),
+                                        'r' => buffer.push('\r'),
+                                        't' => buffer.push('\t'),
+                                        '\\' => buffer.push('\\'),
+                                        '\'' => buffer.push('\''),
+                                        _ => return Err(LexerError::Error {
+                                            message: "Invalid escape sequence".to_string(),
+                                            start,
+                                            end,
+                                        }),
+                                    }
+                                } else {
+                                    return Err(LexerError::Error {
+                                        message: "Unexpected end of input".to_string(),
                                         start,
                                         end,
-                                    }),
+                                    });
                                 }
                             } else {
-                                size += 1;
-                                the_char = Some(c);
+                                let Some((_, c)) = self.get_next() else {
+                                    panic!("Unexpected end of input after checking");
+                                };
+                                buffer.push(c);
                             }
+                            end = i;
+                            count += 1;
                         }
-                        match (the_char, the_label) {
-                            (Some(c), None) => Token::CharLit(c),
-                            (None, Some(tok)) => tok,
-                            (None, None) if found_closing_quote => return Err(LexerError::Error {
-                                message: "Invalid character literal".to_string(),
+                        if count == 0 {
+                            return Err(LexerError::Error {
+                                message: "Empty character literal".to_string(),
                                 start,
                                 end,
-                            }),
-                            _ => return Err(LexerError::Error {
-                                message: "Invalid Label".to_string(),
-                                start,
-                                end,
-                            }),
+                            });
+                        } else if count > 1 {
+                            let start = start + 1;
+                            let tok = Token::Label(&self.raw_input[start..=end]);
+                            tok
+                        } else {
+                            Token::CharLit(buffer.chars().next().unwrap())
                         }
                     },
                     '"' => {

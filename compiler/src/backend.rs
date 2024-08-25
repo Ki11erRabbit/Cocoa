@@ -1,15 +1,12 @@
 
 use std::collections::HashMap;
 
-use bytecode::Bytecode;
+use definitions::{IntoBinary, bytecode::Bytecode};
 use either::Either;
 
 use crate::typechecker::ast::{BinaryOperator, Expression, Lhs, Pattern, PrefixOperator, SpannedExpression, SpannedPattern, SpannedStatement, SpannedType, Statement};
 
 
-pub trait IntoBinary {
-    fn into_binary(&self) -> Vec<u8>;
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Type {
@@ -320,6 +317,7 @@ struct BlockTable {
     labeled_blocks: HashMap<String, u64>,
     start_blocks: Vec<u64>,
     exit_blocks: Vec<u64>,
+    continue_blocks: Vec<u64>,
 }
 
 impl BlockTable {
@@ -331,6 +329,7 @@ impl BlockTable {
             labeled_blocks: HashMap::new(),
             start_blocks: Vec::new(),
             exit_blocks: Vec::new(),
+            continue_blocks: Vec::new(),
         }
     }
 
@@ -391,6 +390,18 @@ impl BlockTable {
 
     pub fn get_exit_block(&self) -> u64 {
         *self.exit_blocks.last().unwrap()
+    }
+
+    pub fn push_continue_block(&mut self, block: u64) {
+        self.continue_blocks.push(block);
+    }
+
+    pub fn pop_continue_block(&mut self) -> u64 {
+        self.continue_blocks.pop().unwrap()
+    }
+
+    pub fn get_continue_block(&self) -> u64 {
+        self.continue_blocks.last().unwrap().clone()
     }
 }
 
@@ -467,6 +478,18 @@ impl StatementsCompiler {
         self.block_table.get_exit_block()
     }
 
+    fn push_continue_block(&mut self, block: u64) {
+        self.block_table.push_continue_block(block);
+    }
+
+    fn pop_continue_block(&mut self) -> u64 {
+        self.block_table.pop_continue_block()
+    }
+
+    fn get_continue_block(&self) -> u64 {
+        self.block_table.get_continue_block()
+    }
+
     fn bind_local(&mut self, name: &str, ty: Type) {
         let index = self.stack.frames.last_mut().unwrap().store_local(name, ty.into());
         self.bytecode.push(Bytecode::StoreLocal(index, ty.into()));
@@ -484,19 +507,22 @@ impl StatementsCompiler {
         self.compile_statements(constant_pool, statements);
     }
 
-    pub fn compile_statements(&mut self, constant_pool: &mut ConstantPool, statements: &[SpannedStatement]) {
+    pub fn compile_statements(&mut self, constant_pool: &mut ConstantPool, statements: &[SpannedStatement]) -> Type {
+        let mut type_ = Type::Unit;
         for statement in statements {
-            self.compile_statement(constant_pool, statement);
+            type_ = self.compile_statement(constant_pool, statement);
         }
+        type_
     }
 
-    pub fn compile_statement(&mut self, constant_pool: &mut ConstantPool, statement: &SpannedStatement) {
+    pub fn compile_statement(&mut self, constant_pool: &mut ConstantPool, statement: &SpannedStatement) -> Type {
         match &statement.statement {
             Statement::Expression(expr) => {
                 self.compile_expression(constant_pool, expr);
+                Type::Unit
             }
             Statement::HangingExpression(expr) => {
-                self.compile_expression(constant_pool, expr);
+                self.compile_expression(constant_pool, expr)
                 //TODO: Check that it is at the end of a function
                 //self.bytecode.push(Bytecode::Return);
             }
@@ -505,6 +531,7 @@ impl StatementsCompiler {
                     let ty = self.compile_expression(constant_pool, expression);
                     self.bind_local(name, ty);
                 }
+                Type::Unit
             }
             Statement::Assignment { binding, expression } => {
                 let ty = self.compile_expression(constant_pool, expression);
@@ -513,9 +540,11 @@ impl StatementsCompiler {
                         self.bind_local(name, ty);
                     }
                 }
+                Type::Unit
             }
             Statement::WhileStatement { condition, body } => {
                 self.compile_while_statement(constant_pool, condition, body, None, None);
+                Type::Unit
             }
         }
     }
@@ -543,7 +572,9 @@ impl StatementsCompiler {
             self.compile_statement(constant_pool, statement);
         }
         //self.stack.pop_frame();
-
+        self.pop_continue_block();
+        self.pop_exit_block();
+        self.pop_start_block();
         self.bytecode.push(Bytecode::Goto(condition_block));
         self.bytecode.push(Bytecode::StartBlock(exit_block));
     }
@@ -1154,6 +1185,7 @@ impl StatementsCompiler {
             Expression::Label { name, body } => {
                 let block_id = self.add_block();
                 self.label_block(&format!("{} entry", name));
+                self.label_block(&format!("{} continue", name));
                 self.push_start_block(block_id);
                 self.bytecode.push(Bytecode::Goto(block_id));
                 self.bytecode.push(Bytecode::StartBlock(block_id));
@@ -1173,18 +1205,18 @@ impl StatementsCompiler {
                         Type::Unit
                     }
                     Either::Right(expr) => {
-                        let ty = self.compile_loop_expression(constant_pool, &expr.expression);
+                        let ty = self.compile_loop_expression(constant_pool, &expr.expression, Some(block_id), Some(exit_block));
                         ty
                     }
                 };
-                self.pop_exit_block();
-                self.pop_start_block();
+                //self.pop_exit_block();
+                //self.pop_start_block();
                 self.bytecode.push(Bytecode::StartBlock(exit_block));
                 self.set_block(&exit_block_name);
                 ty
             }
             Expression::LoopExpression { .. } => {
-                self.compile_loop_expression(constant_pool, &expr.expression)
+                self.compile_loop_expression(constant_pool, &expr.expression, None, None)
             }
             Expression::BreakExpression { label, expression, .. } => {
                 let block_id = if let Some(label) = label {
@@ -1211,18 +1243,72 @@ impl StatementsCompiler {
                     Type::Unit
                 }
             }
+            Expression::ContinueExpression(label) => {
+                let block_id = if let Some(label) = label {
+                    let block_id = self.get_label(&format!("{} continue", label));
+                    block_id
+                } else {
+                    let block_id = self.get_continue_block();
+                    block_id
+                };
+                self.bytecode.push(Bytecode::Goto(block_id));
+                Type::Unit
+            }
+            Expression::IfExpression { condition, then, else_ } => {
+                let _ = self.compile_expression(constant_pool, condition);
+                let then_block = self.add_block();
+                let else_block = self.add_block();
+                let exit_block = self.add_block();
+                self.bytecode.push(Bytecode::If(then_block, else_block));
+                self.bytecode.push(Bytecode::StartBlock(then_block));
+                let ty = self.compile_statements(constant_pool, then);
+                self.bytecode.push(Bytecode::Goto(exit_block));
+
+                self.bytecode.push(Bytecode::StartBlock(else_block));
+                match else_ {
+                    None => {}
+                    Some(Either::Left(else_body)) => {
+                        self.compile_statements(constant_pool, else_body);
+                    }
+                    Some(Either::Right(else_if)) => {
+                        self.compile_expression(constant_pool, else_if);
+                    }
+                }
+                self.bytecode.push(Bytecode::Goto(exit_block));
+                self.bytecode.push(Bytecode::StartBlock(exit_block));
+                
+                ty
+            }
         }
     }
 
-    fn compile_loop_expression(&mut self, constant_pool: &mut ConstantPool, expr: &Expression) -> Type {
+    fn compile_loop_expression(&mut self, constant_pool: &mut ConstantPool, expr: &Expression, start_block: Option<u64>, exit_block: Option<u64>) -> Type {
         let Expression::LoopExpression { type_, body } = expr else {
             panic!("expected loop expression");
         };
-        let block_id = self.add_block();
-        self.bytecode.push(Bytecode::Goto(block_id));
-        self.bytecode.push(Bytecode::StartBlock(block_id));
+        let block_id = if let Some(start_block) = start_block {
+            start_block
+        } else {
+            let block = self.add_block();
+            self.push_start_block(block);
+            self.push_continue_block(block);
+            block
+        };
+        let exit_block = if let Some(exit_block) = exit_block {
+            exit_block
+        } else {
+            let block = self.add_block();
+            self.push_exit_block(block);
+            block
+        };
+
+        self.push_continue_block(block_id);
         self.compile_statements(constant_pool, body);
+        self.pop_start_block();
+        self.pop_exit_block();
+        self.pop_continue_block();
         Bytecode::Goto(block_id);
+        self.bytecode.push(Bytecode::StartBlock(exit_block));
         type_.into()
     }
 
@@ -1241,83 +1327,3 @@ impl IntoBinary for StatementsCompiler {
 }
 
 
-impl IntoBinary for Bytecode {
-    fn into_binary(&self) -> Vec<u8> {
-        let mut bytes = Vec::new();
-        bytes.extend_from_slice(&self.into_instruction().to_le_bytes());
-        match self {
-            Bytecode::LoadConstant(index) => {
-                bytes.extend_from_slice(&index.to_le_bytes());
-            }
-            Bytecode::StoreConstant(index) => {
-                bytes.extend_from_slice(&index.to_le_bytes());
-            }
-            Bytecode::StoreLocal(index, ty) => {
-                bytes.push(*index);
-                bytes.push(*ty);
-            }
-            Bytecode::LoadLocal(index) => {
-                bytes.push(*index);
-            }
-            Bytecode::Convert(tag) => {
-                bytes.push(*tag);
-            }
-            Bytecode::BinaryConvert(tag) => {
-                bytes.push(*tag);
-            }
-            Bytecode::Goto(blockid) => {
-                bytes.extend_from_slice(&blockid.to_le_bytes());
-            }
-            Bytecode::If(blockid, elseid) => {
-                bytes.extend_from_slice(&blockid.to_le_bytes());
-                bytes.extend_from_slice(&elseid.to_le_bytes());
-            }
-            Bytecode::InvokeFunction(symbol) => {
-                bytes.extend_from_slice(&symbol.to_le_bytes());
-            }
-            Bytecode::InvokeFunctionTail(symbol) => {
-                bytes.extend_from_slice(&symbol.to_le_bytes());
-            }
-            Bytecode::InvokeTrait(symbol1, symbol2) => {
-                bytes.extend_from_slice(&symbol1.to_le_bytes());
-                bytes.extend_from_slice(&symbol2.to_le_bytes());
-            }
-            Bytecode::InvokeTraitTail(symbol1, symbol2) => {
-                bytes.extend_from_slice(&symbol1.to_le_bytes());
-                bytes.extend_from_slice(&symbol2.to_le_bytes());
-            }
-            Bytecode::CreateStruct(symbol) => {
-                bytes.extend_from_slice(&symbol.to_le_bytes());
-            }
-            Bytecode::CreateEnum(symbol) => {
-                bytes.extend_from_slice(&symbol.to_le_bytes());
-            }
-            Bytecode::IsA(symbol) => {
-                bytes.extend_from_slice(&symbol.to_le_bytes());
-            }
-            Bytecode::GetField(offset, tag) => {
-                bytes.extend_from_slice(&offset.to_le_bytes());
-                bytes.push(*tag);
-            }
-            Bytecode::SetField(offset, tag) => {
-                bytes.extend_from_slice(&offset.to_le_bytes());
-                bytes.push(*tag);
-            }
-            Bytecode::CreateArray(tag) => {
-                bytes.push(*tag);
-            }
-            Bytecode::ArrayGet(tag) => {
-                bytes.push(*tag);
-            }
-            Bytecode::ArraySet(tag) => {
-                bytes.push(*tag);
-            }
-            Bytecode::StartBlock(block_id) => {
-                bytes.extend_from_slice(&block_id.to_le_bytes());
-            }
-            _ => {}
-        }
-        bytes
-    }
-    
-}
