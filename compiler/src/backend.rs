@@ -557,7 +557,6 @@ impl StatementsCompiler {
         };
         self.bytecode.push(Bytecode::Goto(condition_block));
         self.bytecode.push(Bytecode::StartBlock(condition_block));
-        self.push_continue_block(condition_block);
         let exit_block = if let Some(block) = exit_block {
             block
         } else {
