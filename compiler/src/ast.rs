@@ -1,6 +1,36 @@
 use either::Either;
 
 
+#[derive(Debug, PartialEq, PartialOrd, Clone)]
+pub struct SpannedModule {
+    pub module: Module,
+    pub start: usize,
+    pub end: usize,
+}
+
+#[derive(Debug, PartialEq, PartialOrd, Clone)]
+pub struct Module {
+    pub statements: Vec<SpannedDeclaration>,
+}
+
+#[derive(Debug, PartialEq, PartialOrd, Clone)]
+pub struct SpannedDeclaration {
+    pub declaration: Declaration,
+    pub start: usize,
+    pub end: usize,
+}
+
+#[derive(Debug, PartialEq, PartialOrd, Clone)]
+pub enum Declaration {
+    FunctionDeclaration {
+        name: String,
+        parameters: Vec<SpannedPattern>,
+        parameters_type: Vec<SpannedType>,
+        return_type: Option<SpannedType>,
+        body: Vec<SpannedStatement>,
+    },
+}
+
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub struct SpannedType {

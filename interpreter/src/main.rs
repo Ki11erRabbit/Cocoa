@@ -1,3 +1,5 @@
+use definitions::{FromBinary, Module};
+
 
 mod vm;
 
@@ -14,12 +16,9 @@ fn main() {
     let source = std::fs::read(filename).unwrap();
 
     let mut source = source.into_iter();
-    let constant_pool = vm::ConstantPool::from_binary(&mut source);
-    let slice = [source.next().unwrap(), source.next().unwrap(), source.next().unwrap(), source.next().unwrap(), source.next().unwrap(), source.next().unwrap(), source.next().unwrap(), source.next().unwrap()];
-    let block_count = u64::from_le_bytes(slice);
-    let bytecode = vm::get_bytecode(&mut source);
+    let module = Module::from_binary(&mut source);
 
-    let mut jit = vm::Jit::new(constant_pool, bytecode);
+    let mut jit = vm::Jit::new(&module);
 
-    jit.run(block_count);
+    jit.run();
 }

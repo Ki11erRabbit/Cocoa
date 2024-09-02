@@ -10,6 +10,7 @@ pub struct Function {
     pub symbol_name: PoolIndex,
     pub location_index: LocationIndex,
     pub flags: FunctionFlags,
+    pub block_count: u64,
     pub byte_code: Vec<Bytecode>,
 }
 
@@ -31,6 +32,7 @@ impl IntoBinary for Function {
         result.push(self.flags.bits());
         let size = self.byte_code.len() as u64;
         result.extend(size.to_le_bytes().iter());
+        result.extend(self.block_count.to_le_bytes().iter());
         result.extend(self.byte_code.iter().map(|x| x.into_binary()).flatten());
         result
     }
@@ -43,14 +45,25 @@ impl FromBinary for Function {
         let location_index = LocationIndex::from_le_bytes([source.next().unwrap(), source.next().unwrap(), source.next().unwrap(), source.next().unwrap(), source.next().unwrap(), source.next().unwrap(), source.next().unwrap(), source.next().unwrap()]);
         let flags = FunctionFlags::from_bits_truncate(source.next().unwrap());
         let size = u64::from_le_bytes([source.next().unwrap(), source.next().unwrap(), source.next().unwrap(), source.next().unwrap(), source.next().unwrap(), source.next().unwrap(), source.next().unwrap(), source.next().unwrap()]);
+        let block_count = u64::from_le_bytes([source.next().unwrap(), source.next().unwrap(), source.next().unwrap(), source.next().unwrap(), source.next().unwrap(), source.next().unwrap(), source.next().unwrap(), source.next().unwrap()]);
         let byte_code = (0..size).map(|_| Bytecode::from_binary(source)).collect();
 
-        Function { name_symbol, symbol_name, location_index, flags, byte_code }
+        Function { name_symbol, symbol_name, location_index, flags, block_count, byte_code }
     }
 }
 
 pub struct FunctionTable {
     pub functions: Vec<Function>,
+}
+
+impl FunctionTable {
+    pub fn new() -> Self {
+        FunctionTable { functions: Vec::new() }
+    }
+
+    pub fn iter(&self) -> std::slice::Iter<Function> {
+        self.functions.iter()
+    }
 }
 
 impl IntoBinary for FunctionTable {

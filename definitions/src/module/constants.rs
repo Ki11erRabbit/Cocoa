@@ -92,7 +92,7 @@ impl FromBinary for Constant {
             0 => Constant::U8(u8::from_le_bytes([source.next().unwrap()])),
             1 => Constant::U16(u16::from_le_bytes([source.next().unwrap(), source.next().unwrap()])),
             2 => Constant::U32(u32::from_le_bytes([source.next().unwrap(), source.next().unwrap(), source.next().unwrap(), source.next().unwrap()])),
-            2 => Constant::U64(u64::from_le_bytes([source.next().unwrap(), source.next().unwrap(), source.next().unwrap(), source.next().unwrap(), source.next().unwrap(), source.next().unwrap(), source.next().unwrap(), source.next().unwrap()])),
+            3 => Constant::U64(u64::from_le_bytes([source.next().unwrap(), source.next().unwrap(), source.next().unwrap(), source.next().unwrap(), source.next().unwrap(), source.next().unwrap(), source.next().unwrap(), source.next().unwrap()])),
             4 => Constant::I8(i8::from_le_bytes([source.next().unwrap()])),
             5 => Constant::I16(i16::from_le_bytes([source.next().unwrap(), source.next().unwrap()])),
             6 => Constant::I32(i32::from_le_bytes([source.next().unwrap(), source.next().unwrap(), source.next().unwrap(), source.next().unwrap()])),
@@ -240,6 +240,21 @@ pub struct ConstantPool {
     pub constants: Vec<Constant>,
 }
 
+impl std::ops::Index<usize> for ConstantPool {
+    type Output = Constant;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.constants[index]
+    }
+}
+
+impl std::ops::Index<u64> for ConstantPool {
+    type Output = Constant;
+
+    fn index(&self, index: u64) -> &Self::Output {
+        &self.constants[index as usize]
+    }
+}
 
 impl IntoBinary for ConstantPool {
     fn into_binary(&self) -> Vec<u8> {

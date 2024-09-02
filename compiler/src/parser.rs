@@ -2,7 +2,7 @@ mod parse_table;
 
 use either::Either;
 
-use crate::{ast::{BinaryOperator, Expression, Literal, Pattern, PrefixOperator, SpannedExpression, SpannedPattern, SpannedStatement, SpannedType, Statement, Type}, lexer::{SpannedToken, Token}};
+use crate::{ast::{BinaryOperator, Expression, Literal, Pattern, PrefixOperator, SpannedExpression, SpannedModule, SpannedPattern, SpannedStatement, SpannedType, Statement, Type}, lexer::{SpannedToken, Token}};
 
 use self::parse_table::ParseTable;
 
@@ -48,6 +48,12 @@ impl<'a> Parser<'a> {
 
     pub fn peek(&mut self) -> ParseResult<&SpannedToken> {
         self.parse_table.peek()
+    }
+
+    pub fn parse_module(&mut self) -> ParseResult<SpannedModule> {
+        loop {
+            
+        }
     }
 
     pub fn parse_block_body(&mut self) -> ParseResult<Vec<SpannedStatement>> {

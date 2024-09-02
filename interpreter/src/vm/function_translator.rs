@@ -126,7 +126,7 @@ impl<'a> FunctionTranslator<'a> {
             println!("{:?}", code);
             match code {
                 Bytecode::LoadConstant(pos) => {
-                    let constant = self.constants.constants[*pos as usize];
+                    let constant = &self.module.constant_pool[*pos as usize];
                     match constant {
                         Constant::U8(val) => {
                             let slice = [val.to_le_bytes()[0], 0, 0, 0, 0, 0, 0, 0];
@@ -172,17 +172,17 @@ impl<'a> FunctionTranslator<'a> {
                             self.stack_types.push(types::I32);
                         }
                         Constant::I64(val) => {
-                            let val = self.builder.ins().iconst(types::I64, val);
+                            let val = self.builder.ins().iconst(types::I64, *val);
                             self.stack.push(val);
                             self.stack_types.push(types::I64);
                         }
                         Constant::F32(val) => {
-                            let val = self.builder.ins().f32const(val);
+                            let val = self.builder.ins().f32const(*val);
                             self.stack.push(val);
                             self.stack_types.push(types::F32);
                         }
                         Constant::F64(val) => {
-                            let val = self.builder.ins().f64const(val);
+                            let val = self.builder.ins().f64const(*val);
                             self.stack.push(val);
                             self.stack_types.push(types::F64);
                         }
